@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Текстовый редактор с применением стилей</title>
+    <style>
+        .editor-container {
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            width: 500px;
+        }
+
+        .toolbar {
+            margin-bottom: 10px;
+        }
+
+        .editor {
+            border: 1px solid #ccc;
+            min-height: 150px;
+            padding: 10px;
+            font-size: 16px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            outline: none;
+        }
+
+        .toolbar button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <div class="toolbar">
+            <button onclick="applyStyle('bold')">Жирный</button>
+            <button onclick="applyStyle('italic')">Курсив</button>
+            <button onclick="applyStyle('underline')">Подчеркнутый</button>
+            <button onclick="changeColor()">Цвет текста</button>
+        </div>
+
+        <div class="editor" id="editor" contenteditable="true" placeholder="Введите текст..."></div>
+    </div>
+
+    <script>
+        // Функция для применения стилей
+        function applyStyle(style) {
+            document.execCommand(style, false, null);
+        }
+
+        // Функция для изменения цвета текста
+        function changeColor() {
+            const color = prompt("Введите цвет текста (например, red или #ff5733):");
+            if (color) {
+                document.execCommand('foreColor', false, color);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+html {
+  scroll-behavior: smooth;
+  overflow: hidden;
+}
+p {
+  margin: 0;
+  bottom: 0;
+}
+img {
+  margin: 0;
+  bottom: 0;
+  display: block;
+}
+body {
+  
+  padding: 0;
+  margin: 0;
+  font-family: 'Calibri', sans-serif;
+  color: black;
+  font-size: 14px;
+  background: linear-gradient(
+    13deg,
+    rgba(33, 41, 83, 1) 0%,
+    rgba(68, 37, 102, 1) 34%,
+    rgba(89, 41, 99, 1) 54%,
+    rgba(115, 36, 98, 1) 75%,
+    rgba(130, 0, 102, 1) 100%
+  );
+ 
+}
+button {
+  background: none;
+  color: inherit;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  outline: inherit;
+}
+* {
+  box-sizing: border-box;
+}
+.container {
+  margin: 3vb 10%;
+  border-radius: 30px;
+  width: 80%;
+  height: 94vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation-duration: 0.7s;
+  animation-name: prew;
+}
+@keyframes prew {
+  from {opacity: 0;}
+  to {opacity: 1;}
+}
+.top-bar {
+  display: flex;
+  height: 50px;
+}
+div.logo {
+  min-width:200px;
+  width: 200px;
+  background-color: rgba(0, 0, 0, 0.23);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: "Oswald", sans-serif;
+  font-weight: 400;
+  font-size: 22px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.147);
+}
+.instrum {
+  flex: 1;
+  background-color: rgb(54, 54, 54);
+  border-bottom: 2px solid rgb(47, 44, 44);
+  align-items: center;
+  display: flex;
+  color: white;
+  min-width: 500px;
+}
+.yprav {
+  display: flex;
+  align-items: center;
+}
+.checkbox {
+  padding: 10px;
+}
+.hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+select {
+  background-color: rgba(0, 0, 0, 0.17);
+  border: 1px solid rgba(123, 123, 123, 0.249);
+  border-radius: 30px;
+  color: white;
+  padding: 9px;
+  font-size: 13px;
+  cursor: pointer;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+select:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+select option {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+}
+input[type=color]#fontColor {
+  border: none;
+  width: 30px;
+  height: 30px;
+  background: none;
+  cursor: pointer;
+}
+input[type=color]#fontColor::-webkit-color-swatch {
+  border-radius: 50%;
+  border: 2px solid rgb(73, 73, 73);
+}
+.instri {
+  display: flex;
+  margin-right: 2vh;
+  margin-left: auto;
+  border-radius: 30px;
+  background-color: rgba(104, 104, 104, 0.205);
+}
+.border {
+  margin: 6px 1px;
+  padding: 0;
+  border-left: 2px dashed rgba(197, 197, 197, 0.332);
+}
+.img_btn {
+  padding: 6px;
+  border-radius: 30px;
+  border: 1px solid rgba(123, 123, 123, 0);
+}
+.txt_btn {
+  font-size: 14px;
+  padding: 10px;
+  border-radius: 30px;
+  border: 1px solid rgba(123, 123, 123, 0);
+  transition: 0.2s ease-out;
+}
+.txt_btn.active {
+  
+  background-color: rgba(0, 0, 0, 0.17);
+  border: 1px solid rgba(123, 123, 123, 0.249);
+}
+.instrum button:hover {
+  transition: 0.1s linear;
+  background-color: rgba(0, 0, 0, 0.17);
+  border: 1px solid rgba(123, 123, 123, 0.249);
+}
+.instrum button:active {
+  transition: 0s linear;
+  background-color: rgba(0, 0, 0, 0.308);
+}
+.tooltip-text {
+  display: none;
+  background: rgba(0, 0, 0, 0.277);
+  border-radius: 30px;
+  padding: 5px;
+  padding-inline: 8px;
+  color: rgb(225, 224, 224);
+}
+.img_btn:hover .tooltip-text {
+  display: flex;
+  position: absolute;
+  transform: translateX(-40%) translateY(140%);
+}
+.colorbtn:hover .tooltip-text {
+  display: flex;
+  position: absolute;
+  transform: translateX(-35%) translateY(40%);
+}
+.fontbtn:hover .tooltip-text {
+  display: flex;
+  position: absolute;
+  transform: translateX(-20%) translateY(30%);
+}
+.fontbtn {
+  margin-right: 10px;
+}
+.main {
+  flex: 1;
+  display: flex;
+  height: calc(100% - 50px);
+}
+.navbar {
+  width: 200px;
+  background-color: rgba(0, 0, 0, 0.23);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.history {
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 5px;
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+
+}
+.hist {
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 5px;
+  padding: 5px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  position: relative;
+  
+  padding-right: 9px;
+  cursor: pointer;
+}
+.name {
+  overflow: hidden;
+}
+.hest-del p {
+  font-size: 10px;
+  margin-top: 4px;
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.474);
+}
+.hist:hover {
+  transition: 0.2s linear;
+  background: rgba(255, 255, 255, 0.06);
+}
+.hist:active {
+  transition: 0s linear;
+  background: rgba(255, 255, 255, 0.127);
+}
+.hest-del {
+  display: flex;
+  align-items: center;
+}
+.hist:hover .delete-btn {
+  opacity: 1;
+  transition: 0.1s ease-out;
+}
+.delete-btn img {
+  width: 16px;
+}
+.delete-btn {
+  padding: 1.5px;
+  border-radius: 30px;
+  opacity: 0;
+}
+.delete-btn:hover {
+  transition: 0.1s linear;
+  background-color: rgba(0, 0, 0, 0.17);
+}
+.delete-btn:active {
+  transition: 0s linear;
+  background-color: rgba(0, 0, 0, 0.308);
+}
+.info a {
+  text-decoration: none;
+  flex: 0 0 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  background: rgba(0, 0, 0, 0.1);
+  font-family: "Oswald", sans-serif;
+  transition: 0.2s linear;
+  font-weight: 200;
+}
+.info a:hover {
+  color: blueviolet;
+  font-size: 13px;
+  font-weight: 300;
+}
+.editor {
+  flex: 1;
+  background-color: rgb(54, 54, 54);
+  padding-right: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: 5px;
+  padding-bottom: 20px;
+}
+.edit {
+  flex: 1;
+  height: 100%;
+  color: white;
+  padding: 4vb;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  outline: none;
+}
+.bold { font-weight: bold; }
+.italic { font-style: italic; }
+.underline { text-decoration: underline; }
+#editor span { display: inline; }
+.edit::-webkit-scrollbar,
+.history::-webkit-scrollbar {
+  width: 10px;
+}
+.edit::-webkit-scrollbar-track,
+.history::-webkit-scrollbar-track {
+  background: rgba(141, 141, 141, 0.1);
+  border-radius: 10px;
+}
+.edit::-webkit-scrollbar-thumb,
+.history::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.201);
+  border-radius: 10px;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+}
+.edit::-webkit-scrollbar-thumb:hover,
+.history::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.384);
+}

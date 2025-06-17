@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald&family=Roboto+Slab:wght@100..900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <title>Редактор</title>
+</head>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <div class="logo">Rедактор</div>
+      <div class="instrum">
+        <div class="yprav">
+          <div class="checkbox">
+            <button class="txt_btn" id="bold">Жирный</button>
+            <button class="txt_btn" id="italic">Курсив</button>
+            <button class="txt_btn" id="underline">Подчеркивание</button>
+          </div>
+          <div class="checkbox">
+            <div class="colorbtn">
+              <input type="color" id="fontColor">
+              <span class="tooltip-text">Цвет текста</span>
+            </div>
+          </div>
+           <div class="fontbtn">
+            <select id="fontSize">
+              <option value="14">14px</option>
+              <option value="16">16px</option>
+              <option value="18">18px</option>
+              <option value="20">20px</option>
+              <option value="24">24px</option> 
+            </select>
+            <span class="tooltip-text">Размер шрифта</span>
+          </div>
+        </div>
+        <div class="instri">
+          <button class="img_btn" id="newDoc">
+            <span class="tooltip-text">Новый документ</span>
+            <img src="images/add_circle.svg">
+          </button>
+          <div class="border"></div>
+          <button class="img_btn" id="download">
+            <span class="tooltip-text">Экспорт</span>
+            <img src="images/download_n.svg">
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="navbar">
+        <div class="history" id="history"></div>
+        <div class="info">
+          <a href="#">by Kozubov Alexandr</a>
+        </div>
+      </div>
+      <div class="editor">
+        <div class="edit" contenteditable="true" id="editor"></div>
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
