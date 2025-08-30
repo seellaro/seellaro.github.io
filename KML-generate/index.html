@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Генератор KML</title>
+    <meta charset="utf-8">
+    <style>
+        /* Стили - без изменений */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(36deg, rgb(251, 214, 250) 17%, rgb(255, 255, 255) 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #313131cc;
+        }
+
+        #container {
+            width: 90%;
+            max-width: 1600px;
+            background-color: #ffffff3d;
+            padding: 20px;
+            border-radius: 30px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .fro{
+            display: flex;
+        }
+
+        #map {
+            margin-left: auto;
+            width: 50%;
+            height: 750px;
+            border-radius: 30px;
+        }
+
+        .form-section {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: calc(100% - 16px);
+            padding: 8px;
+            background-color: #ffffff3d;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            box-sizing: border-box;
+        }
+        
+        
+        .points-container {
+            margin-top: 10px;
+        }
+        .main{
+            display: flex;
+            flex-direction: column;
+            width: 48%;
+        }
+
+        .point-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            align-items: center; /* Vertically center items in the row */
+            transition: ease-in ;
+            
+            border-radius: 20px;
+            padding: 4px;
+            box-shadow: 0 0 -10px rgba(0, 0, 0, 0.24);
+        }
+
+        .point-row input {
+            flex: 1;
+            margin-right: 5px;
+            background-color: #ffffff18;
+        }
+
+
+        button {
+           background-color: #00000000;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #b6b6b677;
+        }
+
+        button#addPointButton {
+            background-color: #ffffff2a;
+            color: #313131cc;
+            margin-top: 6px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
+        }
+
+        button#addPointButton:hover {
+            background-color: #91d3ff4b;
+            color: #313131ad;
+        }
+
+         button#generateKMLButton {
+            background-color: #ffffff0e;
+            color: #313131cc;
+            margin-top: 6px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
+        }
+
+        button#generateKMLButton:hover {
+            background-color: #a4ffa2a2;
+        }
+
+        button#clearButton {
+            background-color: #ffffff0e;
+            color: #313131cc;
+            margin-top: 6px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
+        }
+
+        button#clearButton:hover {
+            background-color: #ffaeaea2;
+        }
+
+        .actions {
+            text-align: right;
+        }
+
+         /* OpenLayers Styles */
+        .ol-control button {
+            background-color: #ffffff3d;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin: 2px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        .ol-zoom .ol-zoom-in,
+        .ol-zoom .ol-zoom-out {
+            border-radius: 30px;
+             font-size: larger;
+             display: block;
+             width: 20px;
+             height: 20px;
+        }
+        .move-button {
+            margin: 3px;
+            color: #313131ad;
+            border: none;
+            padding: 5px;
+            height: 30px;
+            width: 30px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #pointsContainer{
+            padding: 8px;
+
+            height: 400px;
+            border-radius: 30px;
+            overflow-y: scroll;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.123);
+        }
+        .removePointButton{
+            color: #313131ad;
+            justify-content: center;
+            text-align: center;
+            height: 30px;
+            width: 30px;
+            padding: 4px;
+            margin: 4px;
+
+        }
+        .removePointButton:hover {
+            background-color: #ff6c6c63;
+        }
+        #pointsContainer::-webkit-scrollbar { display: none; }
+
+         /* Drag and Drop Styles */
+        #drop_zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+
+        #drop_zone.dragover {
+            background-color: #eee;
+            border-color: #aaa;
+        }
+        
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+</head>
+<body>
+    <div id="container">
+        <div class="fro">
+            <div class="main">
+                <h1>Генератор KML</h1>
+
+                <div id="drop_zone">Перетащите сюда KML файл для загрузки</div>
+
+                <div class="form-section" >
+                    <label for="mapName">Название карты:</label>
+                    <input type="text" id="mapName" style="background-color: #ffffff18;" placeholder="Введите название карты">
+                </div>
+
+                <div class="form-section">
+                    <label>Точки:</label>
+                    <div id="pointsContainer" class="points-container">
+                        <!-- Начальная строка точки -->
+                        <div class="point-row">
+                            <input type="text" class="pointName"  placeholder="Название точки 1">
+                            <input type="text" class="pointCoords"  placeholder="55.7558/37.6173">
+                            <button class="move-button" data-direction="up">▲</button>
+                            <button class="move-button" data-direction="down">▼</button>
+                            <button class="removePointButton">✖</button>
+                        </div>
+                    </div>
+                    <button id="addPointButton">Добавить точку</button>
+                </div>
+            </div>
+
+            <div class="map" id="map"></div>
+        </div>
+        <div id="totalDistance">Общее расстояние: 0 км</div>
+        <div class="actions">
+
+            <button id="clearButton">Очистить все</button>
+            <button id="generateKMLButton">Сгенерировать KML</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const pointsContainer = document.getElementById('pointsContainer');
+            const mapNameInput = document.getElementById('mapName');
+            let pointCount = 1;
+
+            // Local Storage Keys
+            const MAP_NAME_KEY = 'kml_generator_map_name';
+            const POINTS_KEY = 'kml_generator_points';
+
+            // Источники данных для меток и линий
+            let vectorSource = new ol.source.Vector({ features: [] });
+            let lineSource = new ol.source.Vector({ features: [] });
+
+            // Слой для меток (теперь с подписями)
+            const pointLayer = new ol.layer.Vector({
+                source: vectorSource,
+                style: function(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 6,
+                            fill: new ol.style.Fill({ color: 'blue' }),
+                            stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                        }),
+                        text: new ol.style.Text({
+                            text: feature.get('name'),  // Use the 'name' property of the feature
+                            font: '12px Arial',
+                            fill: new ol.style.Fill({ color: 'black' }),
+                            stroke: new ol.style.Stroke({ color: 'white', width: 1 })
+                        })
+                    });
+                }
+            });
+
+            // Слой для линий
+            const lineLayer = new ol.layer.Vector({
+                source: lineSource,
+                style: new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: 'red',
+                        width: 2
+                    })
+                })
+            });
+
+           // Get initial zoom level
+           const initialZoom = 10;
+            const initialView = new ol.View({
+                center: ol.proj.fromLonLat([37.6173, 55.7558]), // Москва
+                zoom: initialZoom
+            });
+
+             // Инициализация карты
+             const map = new ol.Map({
+                target: 'map',
+                layers: [
+                     new ol.layer.Tile({
+                         source: new ol.source.OSM()
+                        }),
+                        pointLayer,
+                         lineLayer
+                    ],
+                 view: initialView
+              });
+
+             // Add a click function to the map  This helps to pick a point from the map
+              map.on('click', function(evt) {
+                      const coordinate = ol.proj.toLonLat(evt.coordinate);
+
+                   // Dynamimlly add data to last point row in the map
+                   let  pointRows = document.querySelectorAll(".point-row")
+                    let lastRow     = pointRows.item(pointRows.length -1);
+                        let coordsInput = lastRow.querySelector(".pointCoords")
+
+                    //Update the coord input with the lat/lon
+                   coordsInput.value =  coordinate[1].toFixed(6) + "/" + coordinate[0].toFixed(6);
+
+                   updateMap()
+                 });
+
+            function addPointRow() {
+                pointCount++;
+                const newPointRow = document.createElement('div');
+                newPointRow.classList.add('point-row');
+                newPointRow.innerHTML = `
+                    <input type="text" class="pointName" placeholder="Название точки ${pointCount}">
+                    <input type="text" class="pointCoords" placeholder="55.7558/37.6173">
+                    <button class="move-button" data-direction="up">▲</button>
+                    <button class="move-button" data-direction="down">▼</button>
+                    <button class="removePointButton">✖</button>
+                `;
+
+               newPointRow.querySelector('.removePointButton').addEventListener('click', function() {
+                      newPointRow.remove();
+                           updateMap();
+                           saveDataToLocalStorage();
+                 });
+                      newPointRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
+                      newPointRow.querySelector('.move-button[data-direction="down"]').addEventListener('click', movePointDown);
+
+              // Add event listeners to the input fields for live updating
+              const inputs = newPointRow.querySelectorAll('input');
+              inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                  updateMap();
+                  saveDataToLocalStorage();
+                });
+              });
+
+              pointsContainer.appendChild(newPointRow);
+             }
+
+             pointsContainer.addEventListener('click', function(event) {
+                if (event.target.classList.contains('removePointButton')) {
+                   event.target.parentNode.remove();
+                       updateMap();
+                       saveDataToLocalStorage();
+                                }
+                     });
+
+           // Move Points and set new coordinates
+           function movePointUp(event) {
+                 const row = event.target.closest('.point-row');
+                 if (!row) return;
+
+                 const prevRow = row.previousElementSibling;
+                 if (!prevRow) return;
+
+                pointsContainer.insertBefore(row, prevRow);
+                    updateMap()
+                    saveDataToLocalStorage();
+                 }
+
+            function movePointDown(event) {
+                 const row = event.target.closest('.point-row');
+                 if (!row) return;
+
+                 const nextRow = row.nextElementSibling;
+                  if (!nextRow) return;
+                pointsContainer.insertBefore(nextRow, row);
+                     updateMap()
+                     saveDataToLocalStorage();
+                }
+
+           document.getElementById('addPointButton').addEventListener('click', function() {
+                addPointRow()
+                updateMap()
+                saveDataToLocalStorage();
+
+                                });
+
+        document.getElementById('clearButton').addEventListener('click', function () {
+                document.getElementById('mapName').value = '';
+                    pointsContainer.innerHTML = `
+                          <div class="point-row">
+                            <input type="text" class="pointName" placeholder="Название точки 1">
+                            <input type="text" class="pointCoords" placeholder="55.7558/37.6173">
+                            <button class="move-button" data-direction="up">▲</button>
+                            <button class="move-button" data-direction="down">▼</button>
+                            <button class="removePointButton">✖</button>
+                         </div>
+                   `; // Reset to initial state
+
+                       pointCount = 1;
+                    pointsContainer.querySelector('.removePointButton').addEventListener('click', function() {
+                             pointsContainer.querySelector('.point-row').remove(); // Remove the row
+                             updateMap();
+                             saveDataToLocalStorage();
+                             });
+                    updateMap();
+                    localStorage.removeItem(MAP_NAME_KEY);
+                    localStorage.removeItem(POINTS_KEY);
+                              });
+
+
+        document.getElementById('generateKMLButton').addEventListener('click', function () {
+          const mapName = document.getElementById('mapName').value;
+
+          if (!mapName) {
+                alert('Пожалуйста, введите название карты.');
+                  return;
+           }
+
+            const pointRows = document.querySelectorAll('.point-row');
+            const points = [];
+            let totalDistance = 0;
+            let previousCoords = null;
+
+            pointRows.forEach(row => {
+                const name = row.querySelector('.pointName').value;
+                const coords = row.querySelector('.pointCoords').value;
+
+                if (!name || !coords) {
+                    alert("Пожалуйста, введите все названия и координаты");
+                    return;
+                }
+
+                const [latitude, longitude] = coords.split('/').map(parseFloat);
+
+                if (isNaN(latitude) || isNaN(longitude)) {
+                    alert('Неверный формат координат. Используйте формат широта/долгота (например, 55.7558/37.6173).');
+                    return;
+                }
+
+                points.push({
+                    name: name,
+                    latitude: latitude,
+                    longitude: longitude
+                });
+            });
+
+            if (points.length === 0) {
+                alert('Пожалуйста, добавьте как минимум одну точку перед созданием KML.');
+                return;
+            }
+
+            let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+             <kml xmlns="http://www.opengis.net/kml/2.2">
+               <Document>
+                  <name>${mapName}</name>
+                      `;
+
+            let cumulativeDistance = 0; // Accumulate distance
+
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+                let distanceText = '';
+
+                if (i > 0) {
+                    const from = turf.point([points[i - 1].longitude, points[i - 1].latitude]);
+                    const to = turf.point([point.longitude, point.latitude]);
+                    const options = { units: 'meters' }; // Метры
+                    const distance = turf.distance(from, to, options);
+                    cumulativeDistance += distance;
+                    distanceText = ` - ${Math.round(cumulativeDistance)} м`; // Округление до целого
+                }
+
+                kmlContent += `
+                    <Placemark>
+                        <name>${point.name}${distanceText}</name>
+                        <Point>
+                            <coordinates>${point.longitude},${point.latitude}</coordinates>
+                        </Point>
+                    </Placemark>
+                `;
+            }
+
+            if (points.length > 1) {
+                let lineStringCoords = points.map(point => `${point.longitude},${point.latitude}`).join(' ');
+                kmlContent += `
+                    <Placemark>
+                        <name>Route</name>
+                        <LineString>
+                            <coordinates>${lineStringCoords}</coordinates>
+                        </LineString>
+                    </Placemark>
+                `;
+            }
+
+            kmlContent += ` </Document> </kml>`;
+            const kmlData = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+            const kmlURL = URL.createObjectURL(kmlData);
+
+            const link = document.createElement('a');
+            link.href = kmlURL;
+            link.download = `${mapName.replace(/[^a-zA-Z0-9]/g, '_')}.kml`; // Sanitize filename
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(kmlURL); // Release object URL
+        });
+
+        function updateMap() {
+            vectorSource.clear();
+            lineSource.clear();
+
+            // Get all point rows
+            const pointRows = document.querySelectorAll('.point-row');
+            const coordinates = [];
+            let totalDistance = 0;
+            let previousCoords = null;
+
+            let cumulativeDistance = 0; // Reset cumulative distance for map update
+
+            pointRows.forEach((row, index) => {
+                const coords = row.querySelector('.pointCoords').value;
+                const name = row.querySelector('.pointName').value;
+
+                if (coords) {
+                    const [latitude, longitude] = coords.split('/').map(parseFloat);
+
+                    if (!isNaN(latitude) && !isNaN(longitude)) {
+                        const currentCoords = [longitude, latitude]; // Store current coordinates
+
+                        let distanceText = '';
+                        if (index > 0) {
+                            const from = turf.point([pointRows[index - 1].querySelector('.pointCoords').value.split('/')[1], pointRows[index - 1].querySelector('.pointCoords').value.split('/')[0]]);
+                            const to = turf.point([longitude, latitude]);
+                            const options = { units: 'meters' };
+                            const distance = turf.distance(from, to, options);
+                            cumulativeDistance += distance;
+                            distanceText = ` - ${Math.round(cumulativeDistance)} м`; // Округление до целого
+                        }
+
+                        const feature = new ol.Feature({
+                            geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+                            name: name + distanceText  // Add distance to the name
+                        });
+
+                         vectorSource.addFeature(feature);
+                         coordinates.push(ol.proj.fromLonLat([longitude, latitude]))
+
+                       if (previousCoords) {
+                           const from = turf.point([previousCoords[0], previousCoords[1]]);
+                            const to = turf.point([longitude, latitude]);
+                              const options = {units: 'kilometers'};
+                                const distance = turf.distance(from, to, options);
+                                 totalDistance += distance;
+                                  }
+                                   previousCoords = [longitude, latitude];
+                    }
+                            const currentZoom = map.getView().getZoom();
+
+                     let lastCoords;
+                        if (coords) {
+                    const [latitude, longitude] = coords.split('/').map(parseFloat);
+
+                    if (!isNaN(latitude) && !isNaN(longitude)) {
+                      lastCoords = [longitude, latitude]; 
+                      map.getView().setCenter(ol.proj.fromLonLat(lastCoords));
+                 }
+            }
+                    }
+                });
+                  if (coordinates.length > 1) {
+                   const line = new ol.Feature({
+                     geometry: new ol.geom.LineString(coordinates)
+                      });
+                   lineSource.addFeature(line);
+                 }
+            document.getElementById('totalDistance').textContent = `Общее расстояние: ${Math.round(totalDistance)} км`; // Округление общего расстояния
+        }; // End UpdateMap Function
+
+        // Function to save data to local storage
+       function saveDataToLocalStorage() {
+         const mapName = mapNameInput.value;
+               localStorage.setItem(MAP_NAME_KEY, mapName);
+
+                  const points = [];
+                 const pointRows = document.querySelectorAll('.point-row');
+
+                    pointRows.forEach(row => {
+                     const name = row.querySelector('.pointName').value;
+                       const coords = row.querySelector('.pointCoords').value;
+                          points.push({ name, coords });
+                            });
+
+                              localStorage.setItem(POINTS_KEY, JSON.stringify(points));
+                         }
+
+             // Function to load data from local storage
+             function loadDataFromLocalStorage() {
+               const mapName = localStorage.getItem(MAP_NAME_KEY);
+                if (mapName) {
+                    mapNameInput.value = mapName;
+                      }
+
+             const pointsData = localStorage.getItem(POINTS_KEY);
+               if (pointsData) {
+                 const points = JSON.parse(pointsData);
+
+                // Clear existing points except the first one
+            while (pointsContainer.children.length > 1) {
+                pointsContainer.removeChild(pointsContainer.lastChild);
+                 }
+
+               // Set values for the first point
+              if (points.length > 0) {
+                   const firstPointRow = pointsContainer.querySelector('.point-row');
+                      firstPointRow.querySelector('.pointName').value = points[0].name || '';
+                    firstPointRow.querySelector('.pointCoords').value = points[0].coords || '';
+                }
+                 // Add remaining points - start from the second point set from the first
+               for (let i = 1; i < points.length; i++) {
+                    addPointRow();
+                      const newPointRow = pointsContainer.children[i];
+                     newPointRow.querySelector('.pointName').value = points[i].name || '';
+                       newPointRow.querySelector('.pointCoords').value = points[i].coords || '';
+                     }
+               updateMap();
+                 }
+               }
+                 // Load data on page load
+                 loadDataFromLocalStorage();
+
+          // Event Listeners for Live Updating + Save Local Storage
+          mapNameInput.addEventListener('input', function() {
+            saveDataToLocalStorage();
+          });
+
+          pointsContainer.addEventListener('input', function(event) {
+             if (event.target.tagName === 'INPUT') {
+                 updateMap();
+                    saveDataToLocalStorage();
+                    }
+                 });
+
+            // Drag and Drop Functionality
+            const dropZone = document.getElementById('drop_zone');
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+
+                const file = e.dataTransfer.files[0];
+                const reader = new FileReader();
+
+                reader.onload = function(event) {
+                    const kmlText = event.target.result;
+                    parseKML(kmlText);
+                };
+
+                reader.readAsText(file);
+            });
+
+            function parseKML(kmlText) {
+                const parser = new DOMParser();
+                const kml = parser.parseFromString(kmlText, 'text/xml');
+
+                // Extract map name
+                const mapNameElement = kml.querySelector('Document > name');
+                if (mapNameElement) {
+                    mapNameInput.value = mapNameElement.textContent;
+                }
+
+                // Extract Placemarks (points)
+                const placemarks = kml.querySelectorAll('Placemark');
+
+                // Clear existing points
+                pointsContainer.innerHTML = '';
+                pointCount = 0;
+
+                placemarks.forEach(placemark => {
+                    const name = placemark.querySelector('name')?.textContent || '';
+                    const coordinates = placemark.querySelector('Point > coordinates')?.textContent || '';
+                    const [longitude, latitude, altitude] = coordinates.split(',').map(parseFloat);
+
+                    if (!isNaN(latitude) && !isNaN(longitude)) {
+                        addPointRow();
+                        const newPointRow = pointsContainer.lastElementChild;
+                        newPointRow.querySelector('.pointName').value = name;
+                        newPointRow.querySelector('.pointCoords').value = `${latitude}/${longitude}`;
+                    }
+                });
+
+                updateMap();
+                saveDataToLocalStorage();
+            }
+
+    });
+</script>
+</body>
+</html>
