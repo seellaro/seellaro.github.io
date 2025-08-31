@@ -664,6 +664,7 @@
                 });
 
                 pointsContainer.appendChild(newPointRow);
+                pointsContainer.scrollTo({ top: pointsContainer.scrollHeight, behavior: 'smooth' });
             }
 
             pointsContainer.addEventListener('click', function(event) {
