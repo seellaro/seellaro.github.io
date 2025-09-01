@@ -12,7 +12,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let vectorSource = new ol.source.Vector({ features: [] });
     let lineSource = new ol.source.Vector({ features: [] });
+    let buildingSource = new ol.source.Vector({ features: [] }); // Источник для зданий
     let wells = JSON.parse(localStorage.getItem(WELLS_KEY)) || [];
+
+    function getLineStyle() {
+        const isDark = document.body.classList.contains('dark-theme');
+        return new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: isDark ? '#511f1fff' : '#d05555ff',
+                width: 4
+                
+            })
+        });
+    }
 
     function getPointStyle(feature) {
         const isDark = document.body.classList.contains('dark-theme');
@@ -20,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return new ol.style.Style({
             image: new ol.style.Circle({
                 radius: 10,
-                fill: new ol.style.Fill({ color: isActive ? 'green' : (isDark ? '#4682B4' : 'blue') }),
+                fill: new ol.style.Fill({ color: isActive ? 'green' : (isDark ? '#325572ff' : '#60a0d4ff') }),
                 stroke: new ol.style.Stroke({ color: isDark ? '#1C2526' : 'white', width: 2 })
             }),
             text: new ol.style.Text({
@@ -32,24 +44,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function getLineStyle() {
+    
+
+    function getBuildingStyle(feature) {
         const isDark = document.body.classList.contains('dark-theme');
         return new ol.style.Style({
-            stroke: new ol.style.Stroke({
-                color: isDark ? '#8B0000' : 'red',
-                width: 2
+            text: new ol.style.Text({
+                text: feature.get('buildingNumber'),
+                font: '12px Arial',
+                fill: new ol.style.Fill({ color: isDark ? '#828282ff' : '#595959ff' }),
+                stroke: new ol.style.Stroke({ color: isDark ? '#000' : '#fff', width: 1 }),
+                offsetY: -10
             })
         });
     }
 
     const pointLayer = new ol.layer.Vector({
         source: vectorSource,
-        style: getPointStyle
+        style: getPointStyle,
+        zIndex: 2
     });
 
     const lineLayer = new ol.layer.Vector({
         source: lineSource,
-        style: getLineStyle
+        style: getLineStyle,
+        zIndex: 1
+    });
+
+    const buildingLayer = new ol.layer.Vector({
+        source: buildingSource,
+        style: getBuildingStyle,
+        zIndex: 0,
+        minZoom: 16 // Показывать номера зданий только при большом масштабе
     });
 
     const initialZoom = 10;
@@ -67,8 +93,52 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const map = new ol.Map({
         target: 'map',
-        layers: [baseLayer, pointLayer, lineLayer],
+        layers: [baseLayer, buildingLayer, pointLayer, lineLayer],
         view: initialView
+    });
+
+    // Функция для загрузки номеров зданий через Overpass API
+    function loadBuildings(extent) {
+        buildingSource.clear();
+        const [minLon, minLat, maxLon, maxLat] = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+        const overpassQuery = `
+            [out:json];
+            (
+                way["building"]["addr:housenumber"](bbox:${minLat},${minLon},${maxLat},${maxLon});
+                relation["building"]["addr:housenumber"](bbox:${minLat},${minLon},${maxLat},${maxLon});
+            );
+            out center;
+        `;
+        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const features = [];
+                data.elements.forEach(element => {
+                    if (element.tags && element.tags['addr:housenumber']) {
+                        const coords = ol.proj.fromLonLat([element.center.lon, element.center.lat]);
+                        const feature = new ol.Feature({
+                            geometry: new ol.geom.Point(coords),
+                            buildingNumber: element.tags['addr:housenumber']
+                        });
+                        features.push(feature);
+                    }
+                });
+                buildingSource.addFeatures(features);
+            })
+            .catch(error => console.error('Ошибка загрузки данных о зданиях:', error));
+    }
+
+    // Обновление зданий при изменении области карты
+    map.on('moveend', function () {
+        const zoom = map.getView().getZoom();
+        if (zoom >= 16) { // Загружать номера только при масштабе >= 16
+            const extent = map.getView().calculateExtent(map.getSize());
+            loadBuildings(extent);
+        } else {
+            buildingSource.clear();
+        }
     });
 
     const translate = new ol.interaction.Translate({
@@ -248,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const item = document.createElement('div');
                 item.textContent = well.name;
                 item.dataset.index = index;
-                item.addEventListener('mousedown', (evt) => { // Use mousedown to prevent blur hiding before click
+                item.addEventListener('mousedown', (evt) => {
                     evt.preventDefault();
                     selectSuggestion(input, well);
                 });
@@ -313,7 +383,6 @@ document.addEventListener('DOMContentLoaded', function () {
         setActiveRow(row, true);
         const features = vectorSource.getFeatures();
         if (features.length === 1) {
-            // For first point, center without zooming in too much (keep initial zoom)
             const coord = ol.proj.fromLonLat([well.lon, well.lat]);
             map.getView().animate({
                 center: coord,
@@ -561,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function () {
             map.getView().fit(extent, {
                 padding: [50, 50, 50, 50],
                 duration: 500,
-                maxZoom: 15  // Limit max zoom during fit to prevent too close zoom
+                maxZoom: 15
             });
         }
     }
@@ -771,11 +840,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     lon: parseFloat(row[2])
                 })).filter(w => w.name && !isNaN(w.lon) && !isNaN(w.lat));
 
-               
+                localStorage.setItem(WELLS_KEY, JSON.stringify(wells));
 
                 setTimeout(() => {
                     hideWellsUpload();
-                }, 1000); // Simulate loading time
+                }, 1000);
             };
             reader.readAsArrayBuffer(file);
         } else {
@@ -791,8 +860,10 @@ document.addEventListener('DOMContentLoaded', function () {
         baseLayer: baseLayer,
         pointLayer: pointLayer,
         lineLayer: lineLayer,
+        buildingLayer: buildingLayer,
         getPointStyle: getPointStyle,
         getLineStyle: getLineStyle,
+        getBuildingStyle: getBuildingStyle,
         mapElement: mapElement
     };
 });
