@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     lon: parseFloat(row[2])
                 })).filter(w => w.name && !isNaN(w.lon) && !isNaN(w.lat));
 
-                localStorage.setItem(WELLS_KEY, JSON.stringify(wells));
+               
 
                 setTimeout(() => {
                     hideWellsUpload();
@@ -867,3 +867,4 @@ document.addEventListener('DOMContentLoaded', function () {
         mapElement: mapElement
     };
 });
+
