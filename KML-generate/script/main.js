@@ -1,4 +1,3 @@
-// main.js
 document.addEventListener('DOMContentLoaded', function () {
     const pointsContainer = document.getElementById('pointsContainer');
     const mapNameInput = document.getElementById('mapName');
@@ -8,12 +7,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const MAP_NAME_KEY = 'kml_generator_map_name';
     const POINTS_KEY = 'kml_generator_points';
-    const WELLS_KEY = 'wells_data';
+    const THEME_KEY = 'theme';
 
     let vectorSource = new ol.source.Vector({ features: [] });
     let lineSource = new ol.source.Vector({ features: [] });
-    let buildingSource = new ol.source.Vector({ features: [] }); // Источник для зданий
-    let wells = JSON.parse(localStorage.getItem(WELLS_KEY)) || [];
+    let buildingSource = new ol.source.Vector({ features: [] });
+    let wells = [];
+    let history = [];
 
     function getLineStyle() {
         const isDark = document.body.classList.contains('dark-theme');
@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function () {
             stroke: new ol.style.Stroke({
                 color: isDark ? '#511f1fff' : '#d05555ff',
                 width: 4
-                
             })
         });
     }
@@ -43,8 +42,6 @@ document.addEventListener('DOMContentLoaded', function () {
             })
         });
     }
-
-    
 
     function getBuildingStyle(feature) {
         const isDark = document.body.classList.contains('dark-theme');
@@ -75,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
         source: buildingSource,
         style: getBuildingStyle,
         zIndex: 0,
-        minZoom: 16 // Показывать номера зданий только при большом масштабе
+        minZoom: 16
     });
 
     const initialZoom = 10;
@@ -84,9 +81,11 @@ document.addEventListener('DOMContentLoaded', function () {
         zoom: initialZoom
     });
 
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    const isDark = storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
     const baseLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
-            url: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+            url: isDark ? 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
             attributions: '© CartoDB'
         })
     });
@@ -97,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
         view: initialView
     });
 
-    // Функция для загрузки номеров зданий через Overpass API
     function loadBuildings(extent) {
         buildingSource.clear();
         const [minLon, minLat, maxLon, maxLat] = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
@@ -130,10 +128,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Ошибка загрузки данных о зданиях:', error));
     }
 
-    // Обновление зданий при изменении области карты
     map.on('moveend', function () {
         const zoom = map.getView().getZoom();
-        if (zoom >= 16) { // Загружать номера только при масштабе >= 16
+        if (zoom >= 16) {
             const extent = map.getView().calculateExtent(map.getSize());
             loadBuildings(extent);
         } else {
@@ -146,6 +143,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     map.addInteraction(translate);
 
+    translate.on('translatestart', function (evt) {
+        pushState();
+    });
+
     translate.on('translateend', function (evt) {
         const feature = evt.features.item(0);
         if (feature) {
@@ -157,6 +158,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 coordsInput.value = coord[1].toFixed(6) + '/' + coord[0].toFixed(6);
                 updateMap();
                 saveDataToLocalStorage();
+                setActiveRow(row, false);
             }
         }
     });
@@ -189,6 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!currentCoords || !currentCoords.includes('/')) {
                     const coordinate = ol.proj.toLonLat(evt.coordinate);
                     coordsInput.value = coordinate[1].toFixed(6) + "/" + coordinate[0].toFixed(6);
+                    pushState();
                     updateMap();
                     saveDataToLocalStorage();
                 }
@@ -207,6 +210,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const pointId = feature.get('pointId');
             const row = document.querySelector(`.point-row[data-point-id="${pointId}"]`);
             if (row && confirm('Удалить эту точку?')) {
+                pushState();
                 row.remove();
                 vectorSource.removeFeature(feature);
                 updateMap();
@@ -260,9 +264,9 @@ document.addEventListener('DOMContentLoaded', function () {
         debounceTimer = setTimeout(func, delay);
     }
 
-    function addPointRow() {
+    function addPointRow(name = '', coords = '', providedPointId = null) {
         pointCount++;
-        const pointId = pointIdCounter++;
+        const pointId = providedPointId !== null ? providedPointId : pointIdCounter++;
         const newPointRow = document.createElement('div');
         newPointRow.classList.add('point-row');
         newPointRow.dataset.pointId = pointId;
@@ -274,7 +278,14 @@ document.addEventListener('DOMContentLoaded', function () {
             <button class="removePointButton">✖</button>
         `;
 
+        const nameInput = newPointRow.querySelector('.pointName');
+        const coordsInput = newPointRow.querySelector('.pointCoords');
+
+        nameInput.value = name;
+        coordsInput.value = coords;
+
         newPointRow.querySelector('.removePointButton').addEventListener('click', function () {
+            pushState();
             newPointRow.remove();
             updateMap();
             saveDataToLocalStorage();
@@ -282,8 +293,6 @@ document.addEventListener('DOMContentLoaded', function () {
         newPointRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
         newPointRow.querySelector('.move-button[data-direction="down"]').addEventListener('click', movePointDown);
 
-        const nameInput = newPointRow.querySelector('.pointName');
-        const coordsInput = newPointRow.querySelector('.pointCoords');
         nameInput.addEventListener('input', function (e) {
             debounce(() => handleNameInput(e), 300);
         });
@@ -291,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function () {
         nameInput.addEventListener('blur', hideSuggestions);
         coordsInput.addEventListener('input', function () {
             debounce(() => {
+                pushState();
                 updateMap();
                 saveDataToLocalStorage();
             }, 500);
@@ -298,6 +308,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         pointsContainer.appendChild(newPointRow);
         pointsContainer.scrollTo({ top: pointsContainer.scrollHeight, behavior: 'smooth' });
+        return newPointRow;
     }
 
     function handleNameInput(e) {
@@ -305,15 +316,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const value = input.value.toLowerCase();
         const filteredWells = wells.filter(w => w.name.toLowerCase().includes(value)).slice(0, 10);
 
-        let dropdown = input.parentNode.querySelector('.suggestions');
-        if (!dropdown) {
-            dropdown = document.createElement('div');
-            dropdown.classList.add('suggestions');
-            input.parentNode.appendChild(dropdown);
+        if (input._dropdown) {
+            input._dropdown.remove();
+            input._dropdown = null;
         }
 
-        dropdown.innerHTML = '';
         if (filteredWells.length > 0 && value) {
+            const dropdown = document.createElement('div');
+            dropdown.classList.add('suggestions');
+            document.body.appendChild(dropdown);
+            const row = input.closest('.point-row');
+            const rowRect = row.getBoundingClientRect();
+            const inputRect = input.getBoundingClientRect();
+            dropdown.style.top = `${inputRect.bottom + window.pageYOffset}px`;
+            dropdown.style.left = `${rowRect.left + window.pageXOffset}px`;
+            dropdown.style.width = `${rowRect.width}px`;
+            input._dropdown = dropdown;
+
             filteredWells.forEach((well, index) => {
                 const item = document.createElement('div');
                 item.textContent = well.name;
@@ -324,17 +343,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 dropdown.appendChild(item);
             });
-            dropdown.style.display = 'block';
-        } else {
-            dropdown.style.display = 'none';
         }
         input.dataset.selectedIndex = -1;
     }
 
     function handleKeydown(e) {
         const input = e.target;
-        const dropdown = input.parentNode.querySelector('.suggestions');
-        if (!dropdown || dropdown.style.display === 'none') return;
+        const dropdown = input._dropdown;
+        if (!dropdown) return;
 
         const items = dropdown.querySelectorAll('div');
         let selectedIndex = parseInt(input.dataset.selectedIndex);
@@ -363,22 +379,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function hideSuggestions(e) {
-        const dropdown = e.target.parentNode.querySelector('.suggestions');
-        if (dropdown) {
-            setTimeout(() => {
-                dropdown.style.display = 'none';
-            }, 100);
+        const input = e.target;
+        if (input._dropdown) {
+            input._dropdown.remove();
+            input._dropdown = null;
         }
     }
 
     function selectSuggestion(input, well) {
         input.value = well.name;
-        const coordsInput = input.parentNode.querySelector('.pointCoords');
+        const coordsInput = input.closest('.point-row').querySelector('.pointCoords');
         coordsInput.value = `${well.lat.toFixed(6)}/${well.lon.toFixed(6)}`;
+        pushState();
         updateMap();
         saveDataToLocalStorage();
-        const dropdown = input.parentNode.querySelector('.suggestions');
-        if (dropdown) dropdown.style.display = 'none';
+        hideSuggestions({ target: input });
         const row = input.closest('.point-row');
         setActiveRow(row, true);
         const features = vectorSource.getFeatures();
@@ -394,14 +409,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    pointsContainer.addEventListener('click', function (event) {
-        if (event.target.classList.contains('removePointButton')) {
-            event.target.parentNode.remove();
-            updateMap();
-            saveDataToLocalStorage();
-        }
-    });
-
     function movePointUp(event) {
         const row = event.target.closest('.point-row');
         if (!row) return;
@@ -409,9 +416,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const prevRow = row.previousElementSibling;
         if (!prevRow) return;
 
+        pushState();
         pointsContainer.insertBefore(row, prevRow);
         updateMap();
         saveDataToLocalStorage();
+        setActiveRow(row, false);
     }
 
     function movePointDown(event) {
@@ -420,18 +429,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const nextRow = row.nextElementSibling;
         if (!nextRow) return;
+        pushState();
         pointsContainer.insertBefore(nextRow, row);
         updateMap();
         saveDataToLocalStorage();
+        setActiveRow(row, false);
     }
 
     document.getElementById('addPointButton').addEventListener('click', function () {
-        addPointRow();
+        pushState();
+        const newRow = addPointRow();
         updateMap();
         saveDataToLocalStorage();
+        setActiveRow(newRow, true);
     });
 
     document.getElementById('clearButton').addEventListener('click', function () {
+        pushState();
         document.getElementById('mapName').value = '';
         pointsContainer.innerHTML = `
             <div class="point-row">
@@ -457,9 +471,16 @@ document.addEventListener('DOMContentLoaded', function () {
         nameInput.addEventListener('blur', hideSuggestions);
         coordsInput.addEventListener('input', function () {
             debounce(() => {
+                pushState();
                 updateMap();
                 saveDataToLocalStorage();
             }, 500);
+        });
+        initialRow.querySelector('.removePointButton').addEventListener('click', function () {
+            pushState();
+            initialRow.remove();
+            updateMap();
+            saveDataToLocalStorage();
         });
         updateMap();
         localStorage.removeItem(MAP_NAME_KEY);
@@ -635,6 +656,98 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function pushState() {
+        const state = {
+            mapName: mapNameInput.value,
+            points: Array.from(document.querySelectorAll('.point-row')).map(row => ({
+                pointId: parseInt(row.dataset.pointId),
+                name: row.querySelector('.pointName').value,
+                coords: row.querySelector('.pointCoords').value
+            })),
+            wells: JSON.parse(JSON.stringify(wells)),
+            activePointId: document.querySelector('.point-row.active')?.dataset.pointId
+        };
+        history.push(state);
+    }
+
+    function restoreState(state) {
+        pointsContainer.innerHTML = '';
+        pointIdCounter = 0;
+        pointCount = 0;
+        const addedRows = state.points.map(p => {
+            const row = addPointRow(p.name, p.coords, p.pointId);
+            if (p.pointId >= pointIdCounter) pointIdCounter = p.pointId + 1;
+            return { pointId: p.pointId, row };
+        });
+        pointCount = state.points.length;
+        mapNameInput.value = state.mapName;
+        wells = state.wells;
+        updateMap();
+
+        // Determine the point to highlight
+        let pointIdToHighlight = null;
+
+        // Get the current state (before pop) to compare with the restored state
+        const currentPoints = Array.from(document.querySelectorAll('.point-row')).map(row => ({
+            pointId: parseInt(row.dataset.pointId),
+            name: row.querySelector('.pointName').value,
+            coords: row.querySelector('.pointCoords').value
+        }));
+        const prevState = history.length > 0 ? history[history.length - 1] : { points: [] };
+        const prevPoints = prevState.points || [];
+        const prevMap = new Map(prevPoints.map(p => [p.pointId, p]));
+        const currentMap = new Map(currentPoints.map(p => [p.pointId, p]));
+
+        // Find points that were removed in the current state (i.e., restored by undo)
+        const restoredPointIds = state.points
+            .filter(p => !currentMap.has(p.pointId))
+            .map(p => p.pointId);
+
+        // Find modified or reordered points
+        const changedIds = [];
+        state.points.forEach((c, index) => {
+            const prev = prevMap.get(c.pointId);
+            const prevIndex = prev ? prevPoints.findIndex(p => p.pointId === c.pointId) : -1;
+            if (!prev || prev.name !== c.name || prev.coords !== c.coords || prevIndex !== index) {
+                changedIds.push(c.pointId);
+            }
+        });
+
+        // Prioritize restored points for highlighting
+        if (restoredPointIds.length > 0) {
+            pointIdToHighlight = restoredPointIds[0];
+        } else if (changedIds.length > 0) {
+            // If no restored points, highlight the first changed point
+            pointIdToHighlight = changedIds.find(id => addedRows.some(r => r.pointId === id));
+        }
+
+        // Fallback to activePointId or the first point
+        if (!pointIdToHighlight && state.activePointId) {
+            pointIdToHighlight = state.activePointId;
+        }
+
+        // Highlight the selected point
+        if (pointIdToHighlight) {
+            const rowEntry = addedRows.find(r => r.pointId === pointIdToHighlight);
+            if (rowEntry) {
+                setActiveRow(rowEntry.row, false);
+            }
+        } else if (addedRows.length > 0) {
+            // Fallback to the first point if no specific point to highlight
+            setActiveRow(addedRows[0].row, false);
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.code === 'KeyZ') {
+            e.preventDefault(); // Prevent browser undo
+            if (history.length > 0) {
+                const prevState = history.pop();
+                restoreState(prevState);
+            }
+        }
+    });
+
     function saveDataToLocalStorage() {
         const mapName = mapNameInput.value;
         localStorage.setItem(MAP_NAME_KEY, mapName);
@@ -663,10 +776,7 @@ document.addEventListener('DOMContentLoaded', function () {
             pointsContainer.innerHTML = '';
 
             points.forEach((point, i) => {
-                addPointRow();
-                const row = pointsContainer.children[i];
-                row.querySelector('.pointName').value = point.name || '';
-                row.querySelector('.pointCoords').value = point.coords || '';
+                addPointRow(point.name, point.coords);
             });
             pointCount = points.length;
             updateMap();
@@ -684,9 +794,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 nameInput.addEventListener('blur', hideSuggestions);
                 coordsInput.addEventListener('input', function () {
                     debounce(() => {
+                        pushState();
                         updateMap();
                         saveDataToLocalStorage();
                     }, 500);
+                });
+                initialRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
+                initialRow.querySelector('.move-button[data-direction="down"]').addEventListener('click', movePointDown);
+                initialRow.querySelector('.removePointButton').addEventListener('click', function () {
+                    pushState();
+                    initialRow.remove();
+                    updateMap();
+                    saveDataToLocalStorage();
                 });
             }
         }
@@ -695,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function () {
     loadDataFromLocalStorage();
 
     mapNameInput.addEventListener('input', function () {
-        saveDataToLocalStorage();
+        debounce(saveDataToLocalStorage, 500);
     });
 
     const dropZone = document.getElementById('drop_zone');
@@ -746,10 +865,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const [longitude, latitude] = coordinates.split(',').map(parseFloat);
 
             if (!isNaN(latitude) && !isNaN(longitude)) {
-                addPointRow();
-                const newPointRow = pointsContainer.lastElementChild;
-                newPointRow.querySelector('.pointName').value = name.replace(/ - \d+ м$/, '');
-                newPointRow.querySelector('.pointCoords').value = `${latitude}/${longitude}`;
+                addPointRow(name.replace(/ - \d+ м$/, ''), `${latitude}/${longitude}`);
             }
         });
 
@@ -758,27 +874,6 @@ document.addEventListener('DOMContentLoaded', function () {
         saveDataToLocalStorage();
     }
 
-    const initialRow = pointsContainer.querySelector('.point-row');
-    if (initialRow) {
-        initialRow.dataset.pointId = pointIdCounter++;
-        const nameInput = initialRow.querySelector('.pointName');
-        const coordsInput = initialRow.querySelector('.pointCoords');
-        nameInput.addEventListener('input', function (e) {
-            debounce(() => handleNameInput(e), 300);
-        });
-        nameInput.addEventListener('keydown', handleKeydown);
-        nameInput.addEventListener('blur', hideSuggestions);
-        coordsInput.addEventListener('input', function () {
-            debounce(() => {
-                updateMap();
-                saveDataToLocalStorage();
-            }, 500);
-        });
-        initialRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
-        initialRow.querySelector('.move-button[data-direction="down"]').addEventListener('click', movePointDown);
-    }
-
-    // Wells upload functionality
     const loadWellsButton = document.getElementById('loadWellsButton');
     const wellsDropZone = document.getElementById('wellsDropZone');
     const loadingAnimation = document.getElementById('loadingAnimation');
@@ -828,23 +923,40 @@ document.addEventListener('DOMContentLoaded', function () {
         if (file && file.name.endsWith('.xlsx')) {
             const reader = new FileReader();
             reader.onload = function (event) {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
 
-                wells = rows.map(row => ({
-                    name: row[0] ? row[0].toString() : '',
-                    lat: parseFloat(row[1]),
-                    lon: parseFloat(row[2])
-                })).filter(w => w.name && !isNaN(w.lon) && !isNaN(w.lat));
+                    if (rows.length < 1) {
+                        throw new Error('Таблица пуста');
+                    }
 
-               
+                    const header = rows[0].map(c => (c || '').toString().toLowerCase());
+                    const nameIdx = header.findIndex(c => c.includes('название'));
+                    const latIdx = header.findIndex(c => c.includes('lat'));
+                    const lonIdx = header.findIndex(c => c.includes('long'));
 
-                setTimeout(() => {
-                    hideWellsUpload();
-                }, 1000);
+                    if (nameIdx === -1 || latIdx === -1 || lonIdx === -1) {
+                        throw new Error('Не найдены необходимые столбцы: Название, lat, long');
+                    }
+
+                    wells = rows.slice(1).map(row => ({
+                        name: row[nameIdx] ? row[nameIdx].toString() : '',
+                        lat: parseFloat(row[latIdx]),
+                        lon: parseFloat(row[lonIdx])
+                    })).filter(w => w.name && !isNaN(w.lat) && !isNaN(w.lon));
+
+                    setTimeout(() => {
+                        hideWellsUpload();
+                    }, 1000);
+                } catch (error) {
+                    alert('Ошибка при чтении таблицы: ' + error.message);
+                    loadingAnimation.style.display = 'none';
+                    wellsDropZone.style.display = 'block';
+                }
             };
             reader.readAsArrayBuffer(file);
         } else {
@@ -854,7 +966,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Expose necessary objects for theme.js
     window.kmlGenerator = {
         map: map,
         baseLayer: baseLayer,
@@ -867,4 +978,3 @@ document.addEventListener('DOMContentLoaded', function () {
         mapElement: mapElement
     };
 });
-
