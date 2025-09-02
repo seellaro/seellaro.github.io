@@ -313,14 +313,46 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function handleNameInput(e) {
         const input = e.target;
-        const value = input.value.toLowerCase();
-        const filteredWells = wells.filter(w => w.name.toLowerCase().includes(value)).slice(0, 10);
-
+        // Убираем пробелы в конце для поиска, но сохраняем оригинальное значение
+        const value = input.value.trimEnd().toLowerCase();
+        const originalValue = input.value.toLowerCase();
+        
+        // Сортируем скважины по степени совпадения
+        const filteredWells = wells
+            .filter(w => w.name.toLowerCase().includes(value))
+            .sort((a, b) => {
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+                
+                // Приоритет полному совпадению
+                if (aName === value) return -1;
+                if (bName === value) return 1;
+                
+                // Приоритет началу строки
+                const aStartsWith = aName.startsWith(value);
+                const bStartsWith = bName.startsWith(value);
+                if (aStartsWith && !bStartsWith) return -1;
+                if (!aStartsWith && bStartsWith) return 1;
+                
+                // Приоритет более точному совпадению (меньше дополнительных символов)
+                const aIndex = aName.indexOf(value);
+                const bIndex = bName.indexOf(value);
+                const aExtra = aName.length - value.length;
+                const bExtra = bName.length - value.length;
+                
+                // Сортировка по позиции совпадения, затем по количеству дополнительных символов
+                if (aIndex !== bIndex) return aIndex - bIndex;
+                return aExtra - bExtra;
+            })
+            .slice(0, 10);
+    
+        // Удаляем предыдущий dropdown
         if (input._dropdown) {
             input._dropdown.remove();
             input._dropdown = null;
         }
-
+    
+        // Создаем новый dropdown если есть результаты
         if (filteredWells.length > 0 && value) {
             const dropdown = document.createElement('div');
             dropdown.classList.add('suggestions');
@@ -332,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
             dropdown.style.left = `${rowRect.left + window.pageXOffset}px`;
             dropdown.style.width = `${rowRect.width}px`;
             input._dropdown = dropdown;
-
+    
             filteredWells.forEach((well, index) => {
                 const item = document.createElement('div');
                 item.textContent = well.name;
