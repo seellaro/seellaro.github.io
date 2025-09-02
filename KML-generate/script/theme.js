@@ -1,6 +1,4 @@
-// theme.js
 document.addEventListener('DOMContentLoaded', function () {
-    // Определение цветов для тем
     const lightColors = [
         { r: 251, g: 214, b: 250, stop: 17 },
         { r: 229, g: 245, b: 255, stop: 100 }
@@ -9,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { r: 50, g: 30, b: 50, stop: 17 },
         { r: 30, g: 50, b: 70, stop: 100 }
     ];
+    const THEME_KEY = 'theme';
 
     function setBackground(colors) {
         document.body.style.background = `linear-gradient(36deg, rgb(${colors[0].r}, ${colors[0].g}, ${colors[0].b}) ${colors[0].stop}%, rgb(${colors[1].r}, ${colors[1].g}, ${colors[1].b}) ${colors[1].stop}%)`;
@@ -27,15 +26,10 @@ document.addEventListener('DOMContentLoaded', function () {
         return colors1.map((color1, index) => interpolateColor(color1, colors2[index], factor));
     }
 
-    // Установка начальной темы
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) {
-        document.body.classList.add('dark-theme');
-        setBackground(darkColors);
-    } else {
-        document.body.classList.remove('dark-theme');
-        setBackground(lightColors);
-    }
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    const isDark = storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.body.classList.toggle('dark-theme', isDark);
+    setBackground(isDark ? darkColors : lightColors);
 
     function toggleTheme() {
         const isDark = document.body.classList.contains('dark-theme');
@@ -46,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const startTime = performance.now();
         const newIsDark = !isDark;
 
-        const { map, baseLayer, pointLayer, lineLayer, getPointStyle, getLineStyle, mapElement } = window.kmlGenerator;
+        const { map, baseLayer, pointLayer, lineLayer, buildingLayer, getPointStyle, getLineStyle, getBuildingStyle, mapElement } = window.kmlGenerator;
 
         map.getInteractions().forEach(interaction => interaction.setActive(false));
 
@@ -60,6 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 requestAnimationFrame(animateFadeOut);
             } else {
                 document.body.classList.toggle('dark-theme');
+                localStorage.setItem(THEME_KEY, newIsDark ? 'dark' : 'light');
 
                 baseLayer.setSource(new ol.source.XYZ({
                     url: newIsDark ? 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
@@ -67,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }));
                 pointLayer.setStyle(getPointStyle);
                 lineLayer.setStyle(getLineStyle);
+                buildingLayer.setStyle(getBuildingStyle);
 
                 const fadeInStartTime = performance.now();
                 const fadeIn = function animateFadeIn(currentTime) {
