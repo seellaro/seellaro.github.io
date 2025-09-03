@@ -1,3 +1,4 @@
+// theme.js
 document.addEventListener('DOMContentLoaded', function () {
     const lightColors = [
         { r: 251, g: 214, b: 250, stop: 17 },
