@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-<head>
     <title>Генератор KML</title>
     <meta charset="utf-8">
     <link rel="stylesheet" href="style/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-</head>
 <body>
+    
     <div id="container">
         <div class="fro">
             <div class="main">
@@ -25,7 +23,14 @@
                 <div class="form-section">
                     <label>Точки:</label>
                     <div id="pointsContainer" class="points-container">
-                        
+                        <div class="point-row">
+                            <span class="point-number"></span>
+                            <input type="text" class="pointName" placeholder="Название точки">
+                            <input type="text" class="pointCoords" placeholder="55.7558/37.6173">
+                            <button class="move-button" data-direction="up">▲</button>
+                            <button class="move-button" data-direction="down">▼</button>
+                            <button class="removePointButton">✖</button>
+                        </div>
                     </div>
                     <div class="add-btn">
                         <button id="addPointButton">Добавить точку</button>
@@ -47,34 +52,59 @@
                 <button id="generateKMLButton">Сгенерировать KML</button>
             </div>
         </div>
-        <div id="wellsDropZone" class="drop_zone" style="display: none;">
-            Перетащите сюда XLSX файл с колодцами <br> Желательно содержащий только: Название, lat, long.
-        </div>
-        <div id="loadingAnimation" style="display: none; text-align: center; margin: 20px;">
-            <div class="spinner"></div>
-            Загрузка...
-        </div>
-        <button id="backButton" style="display: none;">Назад</button>
-        
     </div>
- 
+
     <div id="quickAddModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">Быстрое добавление колодца</div>
+            <div class="modal-header">
+                Быстрое добавление колодца
+                <button id="quickAddClose" class="close-modal">✕</button>
+            </div>
             <div class="modal-body">
                 <input type="text" id="quickAddSearch" placeholder="Поиск колодца...">
                 <div id="quickAddWellList" class="well-list"></div>
-                <div class="modal-buttons">
-                    <button id="quickAddClose">Закрыть</button>
-                    <button id="quickAddConfirm">Добавить</button>
-                </div>
             </div>
         </div>
     </div>
 
+    <div id="startPointModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Выберите начальную точку
+                <button id="startPointClose" class="close-modal">✕</button>
+            </div>
+            <div class="sub-header" id="mapNameSub"></div>
+            <div class="modal-body">
+                <div id="startPointList" class="well-list"></div>
+            </div>
+        </div>
+    </div>
+    <div id="startPointModalBackdrop" class="modal-backdrop"></div>
+
+    <div id="wellsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Загрузка колодцев
+                <button id="wellsModalClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="wellsDropZone" class="drop_zone">
+                    Перетащите сюда XLSX файл с колодцами <br> Желательно содержащий только: Название, lat, long.
+                </div>
+                <div id="loadingAnimation" style="display: none; text-align: center; margin: 20px;">
+                    <div class="spinner"></div>
+                    <div id="progressText">Обработка: 0%</div>
+                    <div id="progressBar" style="width: 100%; height: 10px; background-color: #cccccc47; border-radius: 5px; overflow: hidden;">
+                        <div id="progressFill" style="width: 0%; height: 100%; background-color: #4a91e25b; transition: width 0.2s ease-out;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="wellsModalBackdrop" class="modal-backdrop"></div>
+
     <script src="script/theme.js"></script>
+    <script src="script/opener-kml.js"></script>
     <script src="script/main.js"></script>
-    
-    
 </body>
 </html>
