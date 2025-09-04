@@ -93,7 +93,7 @@ body.dark-theme input[type="text"] {
     align-items: center;
     border-radius: 20px;
     padding: 4px;
-    transition: background-color 0.5s ease-out, box-shadow 0.5s ease-out;
+    transition: background-color 0.5s ease-out, box-shadow 0.5s ease-out, transform 0.2s ease-out;
     position: relative;
 }
 
@@ -117,16 +117,26 @@ body.dark-theme .point-row.active {
     transition: background-color 0.5s ease-out;
 }
 
+.point-row:hover {
+    background-color: #91d3ff1d;
+    transition: background-color 0.1s ease-out;
+}
+
+body.dark-theme .point-row:hover {
+    background-color: #2a4a6a33;
+}
+
 body.dark-theme .point-row input {
     background-color: #00000018;
 }
 
 .point-number {
-    min-width: 30px;
+    min-width: 18px;
     text-align: right;
     margin-right: 5px;
     font-weight: bold;
     color: inherit;
+    font-size: 14px;
 }
 
 button {
@@ -153,9 +163,11 @@ body.dark-theme button:hover {
     background-color: #4a4a4a77;
 }
 
-.add-btn{display: flex;}
+.add-btn {
+    display: flex;
+}
 
-.add-btn button{
+.add-btn button {
     margin: 6px;
     background-color: #ffffff2a;
     color: #313131cc;
@@ -298,7 +310,6 @@ body.dark-theme .move-button {
 }
 
 #pointsContainer {
-    
     padding: 8px;
     height: 400px;
     border-radius: 30px;
@@ -349,10 +360,13 @@ body.dark-theme .removePointButton:hover {
     transition: border-color 0.5s ease-out, background-color 0.5s ease-out;
     box-shadow: none;
 }
-#wellsDropZone{
+
+#wellsDropZone {
+    height: 200px;
     align-content: center;
-    height: 40vh;
+    margin: 0;
 }
+
 body.dark-theme #drop_zone, body.dark-theme #wellsDropZone {
     border-color: #666;
 }
@@ -383,30 +397,6 @@ body.dark-theme #drop_zone.dragover, body.dark-theme #wellsDropZone.dragover {
 body.dark-theme #totalDistance {
     background-color: rgba(0, 0, 0, 0.8);
     color: #ddddddcc;
-}
-
-#backButton {
-    background-color: #ffffff2a;
-    color: #313131cc;
-    margin-top: 6px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
-    width: 100%;
-    transition: background-color 0.5s ease-out, color 0.5s ease-out;
-}
-
-body.dark-theme #backButton {
-    background-color: #0000001c;
-    color: #ddddddcc;
-}
-
-#backButton:hover {
-    background-color: #91d3ff4b;
-    color: #313131ad;
-}
-
-body.dark-theme #backButton:hover {
-    background-color: #2a4a6a4b;
-    color: #ddddddad;
 }
 
 .spinner {
@@ -451,8 +441,8 @@ body.dark-theme .suggestions {
     padding: 8px;
     cursor: pointer;
     transition: background-color 0.2s ease-out;
-    white-space: normal; /* Allow wrapping if needed */
-    word-break: break-word; /* Break long words */
+    white-space: normal;
+    word-break: break-word;
 }
 
 .suggestions div:hover, .suggestions div.selected {
@@ -475,18 +465,72 @@ body.dark-theme .suggestions div:hover, body.dark-theme .suggestions div.selecte
 body.dark-theme .suggestions::-webkit-scrollbar-thumb {
     background-color: #666;
 }
-/* === Модальное окно "Быстрое добавление" === */
 
 .modal {
     display: none;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    justify-content: center;
-    align-items: center;
     z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+    visibility: hidden;
+}
+
+.modal.show {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    transition: opacity 0.3s ease-out;
+    opacity: 0;
+}
+
+.modal.show .modal-content {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+#quickAddModal .modal-content {
+    transition: opacity 0.3s ease-out; /* Faster dragging for Quick Add */
+}
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1999;
+    opacity: 0;
+    transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+    visibility: hidden;
+}
+
+.modal-backdrop.show {
+     display: block;
+    opacity: 1;
+    visibility: visible;
+}
+
+#quickAddModal {
+
+    pointer-events: none;
+}
+
+#quickAddModal .modal-content {
+    pointer-events: auto;
+}
+
+#wellsModal .modal-content,
+#startPointModal .modal-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .modal-content {
@@ -502,7 +546,6 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
 
 body.dark-theme .modal-content {
     background-color: #3a3447af;
-    
 }
 
 .modal-header {
@@ -510,7 +553,7 @@ body.dark-theme .modal-content {
     font-weight: bold;
     background-color: rgba(254, 234, 255, 0);
     border-bottom: 1px solid #ddd;
-    cursor: pointer;
+    position: relative;
     user-select: none;
 }
 
@@ -520,14 +563,50 @@ body.dark-theme .modal-header {
     color: #ddd;
 }
 
+.close-modal {
+    text-align: center;
+    z-index: 9999;
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    height: 24px;
+    width: 24px;
+    line-height: 1;
+    padding: 4px;
+    margin: 0;
+    color: #888;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+.close-modal:hover {
+    
+    background-color: hsla(0, 94%, 79%, 0.604);
+}
+
+body.dark-theme .close-modal {
+    color: #aaa;
+}
+
+body.dark-theme .close-modal:hover {
+    
+    background-color: #662f2f9a;
+}
+
 .modal-body {
     padding: 12px;
+    padding-top: 5px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 5px;
 }
 
 #quickAddSearch {
+    width: 100%;
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 20px;
@@ -587,7 +666,6 @@ body.dark-theme .well-list .well-item {
 .modal-buttons {
     display: flex;
     justify-content: space-between;
-    
 }
 
 .modal-buttons button {
@@ -597,12 +675,16 @@ body.dark-theme .well-list .well-item {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
     color: #333;
 }
+
 body.dark-theme .modal-buttons button {
     background-color: #2b2735af;
     box-shadow: none;
 }
-.modal-buttons button:hover{background-color: #91d3ff4b;}
-body.dark-theme .modal-buttons button:hover{background-color: #2a4a6a4b;}
+
+body.dark-theme .modal-buttons button:hover {
+    background-color: #2a4a6a4b;
+}
+
 .well-list::-webkit-scrollbar {
     width: 6px;
 }
@@ -614,4 +696,37 @@ body.dark-theme .modal-buttons button:hover{background-color: #2a4a6a4b;}
 
 body.dark-theme .well-list::-webkit-scrollbar-thumb {
     background-color: #666;
+}
+
+.sub-header {
+    font-size: 14px;
+    color: #777;
+    padding: 0 20px;
+    padding-top: 5px;
+}
+
+body.dark-theme .sub-header {
+    color: #c1c0c0;
+}
+
+#progressBar {
+    width: 100%;
+    height: 10px;
+    background-color: #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+body.dark-theme #progressBar {
+    background-color: #666;
+}
+
+#progressFill {
+    height: 100%;
+    background-color: #4a90e2;
+    transition: width 0.2s ease-out;
+}
+
+body.dark-theme #progressFill {
+    background-color: #2a4a6a;
 }
