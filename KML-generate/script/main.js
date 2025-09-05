@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const MAP_NAME_KEY = 'kml_generator_map_name';
     const POINTS_KEY = 'kml_generator_points';
     const THEME_KEY = 'theme';
+    const HISTORY_KEY = 'kml_generator_history';
 
     let vectorSource = new ol.source.Vector({ features: [] });
     let lineSource = new ol.source.Vector({ features: [] });
@@ -212,15 +213,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (feature && feature.getGeometry().getType() === 'Point') {
             const pointId = feature.get('pointId');
             const row = document.querySelector(`.point-row[data-point-id="${pointId}"]`);
-            if (row && confirm('Удалить эту точку?')) {
-                pushState();
-                row.remove();
-                vectorSource.removeFeature(feature);
-                updateMap();
-                saveDataToLocalStorage();
-                ensureEmptyRowAtEnd();
-                updatePointNumbers();
-            }
+            pushState();
+            row.remove();
+            vectorSource.removeFeature(feature);
+            updateMap();
+            saveDataToLocalStorage();
+            ensureEmptyRowAtEnd();
+            updatePointNumbers();
+            
         }
     });
 
@@ -558,6 +558,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    function saveMapToHistory(mapName, points, kmlContent) {
+        let mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        // Prepend new entry to the history array to make it appear at the top
+        mapHistory.unshift({
+            id: Date.now(),
+            name: mapName,
+            timestamp: new Date().toLocaleString('ru-RU'),
+            points: points,
+            kml: kmlContent
+        });
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(mapHistory));
+    }
+
     document.getElementById('generateKMLButton').addEventListener('click', function () {
         const mapName = document.getElementById('mapName').value;
 
@@ -626,6 +639,9 @@ document.addEventListener('DOMContentLoaded', function () {
         kmlContent += `
     </Document>
 </kml>`;
+
+        // Save to history
+        saveMapToHistory(mapName, points, kmlContent);
 
         const kmlData = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
         const kmlURL = URL.createObjectURL(kmlData);
@@ -801,7 +817,15 @@ document.addEventListener('DOMContentLoaded', function () {
         pointsContainer.innerHTML = '';
         pointIdCounter = 0;
         pointsToLoad.forEach(point => {
-            addPointRow(point.name, `${point.lat.toFixed(6)}/${point.lon.toFixed(6)}`);
+            // Handle both {lat, lon} and {latitude, longitude} formats
+            const lat = point.latitude !== undefined ? point.latitude : point.lat;
+            const lon = point.longitude !== undefined ? point.longitude : point.lon;
+            // Validate coordinates
+            if (typeof lat === 'number' && !isNaN(lat) && typeof lon === 'number' && !isNaN(lon)) {
+                addPointRow(point.name || '', `${lat.toFixed(6)}/${lon.toFixed(6)}`);
+            } else {
+                console.warn(`Skipping invalid point: ${JSON.stringify(point)}`);
+            }
         });
         if (mapName) {
             mapNameInput.value = mapName;
@@ -838,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const file = e.dataTransfer.files[0];
         if (!file || !file.name.toLowerCase().endsWith('.kml')) {
             alert('Пожалуйста, загрузите файл в формате KML.');
-            console.log('Invalid file type for KML drop'); // Debug log
+            console.log('Invalid file type for KML drop');
             return;
         }
 
@@ -846,10 +870,10 @@ document.addEventListener('DOMContentLoaded', function () {
         reader.onload = function (event) {
             try {
                 const kmlText = event.target.result;
-                console.log('KML file read, parsing...'); // Debug log
+                console.log('KML file read, parsing...');
                 const parsed = opener.parseKML(kmlText);
                 if (parsed === null) {
-                    console.log('Start Point Modal bypassed; points loaded directly'); // Debug log
+                    console.log('Start Point Modal bypassed; points loaded directly');
                     loadPointsIntoUI(opener.points, opener.mapName);
                     opener.points = [];
                     opener.lineCoords = [];
@@ -858,22 +882,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 if (!parsed || !parsed.points || parsed.points.length === 0) {
                     alert('В KML файле не найдены точки.');
-                    console.log('No points found in KML'); // Debug log
+                    console.log('No points found in KML');
                     return;
                 }
                 opener.points = parsed.points;
                 opener.lineCoords = parsed.lineCoords;
                 opener.mapName = parsed.mapName;
-                console.log('Triggering Start Point Modal with points:', parsed.points); // Debug log
+                console.log('Triggering Start Point Modal with points:', parsed.points);
                 opener.showStartPointModal(parsed.mapName || 'Imported Map', parsed.points);
             } catch (error) {
-                console.error('Ошибка при разборе KML:', error); // Debug log
+                console.error('Ошибка при разборе KML:', error);
                 alert('Ошибка при обработке KML файла: ' + error.message);
             }
         };
         reader.onerror = function () {
             alert('Ошибка при чтении KML файла.');
-            console.log('Error reading KML file'); // Debug log
+            console.log('Error reading KML file');
         };
         reader.readAsText(file);
     });
@@ -892,10 +916,10 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => {
             wellsModal.classList.add('show');
             document.getElementById('wellsModalBackdrop').classList.add('show');
-        }, 0); // Ensure DOM update before animation
+        }, 0);
         wellsDropZone.style.display = 'block';
         loadingAnimation.style.display = 'none';
-        console.log('Wells Modal opened'); // Debug log
+        console.log('Wells Modal opened');
     });
 
     wellsModalClose.addEventListener('click', function (event) {
@@ -909,8 +933,8 @@ document.addEventListener('DOMContentLoaded', function () {
             loadingAnimation.style.display = 'none';
             progressFill.style.width = '0%';
             progressText.textContent = 'Обработка: 0%';
-            console.log('Wells Modal closed'); // Debug log
-        }, 300); // Match CSS transition duration
+            console.log('Wells Modal closed');
+        }, 300);
     });
 
     wellsDropZone.addEventListener('dragover', function (e) {
@@ -988,8 +1012,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                     loadingAnimation.style.display = 'none';
                                     progressFill.style.width = '0%';
                                     progressText.textContent = 'Обработка: 0%';
-                                    console.log('Wells Modal closed after processing'); // Debug log
-                                }, 300); // Match CSS transition duration
+                                    console.log('Wells Modal closed after processing');
+                                }, 300);
                             }, 500);
                         }
                     }
@@ -1001,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     loadingAnimation.style.display = 'none';
                     progressFill.style.width = '0%';
                     progressText.textContent = 'Обработка: 0%';
-                    console.error('Error processing XLSX:', error); // Debug log
+                    console.error('Error processing XLSX:', error);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -1011,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', function () {
             loadingAnimation.style.display = 'none';
             progressFill.style.width = '0%';
             progressText.textContent = 'Обработка: 0%';
-            console.log('Invalid file type for wellsDropZone'); // Debug log
+            console.log('Invalid file type for wellsDropZone');
         }
     });
 
@@ -1028,8 +1052,8 @@ document.addEventListener('DOMContentLoaded', function () {
             quickAddSearch.dataset.selectedIndex = -1;
             updateQuickAddWellList();
             quickAddSearch.focus();
-        }, 0); // Ensure DOM update before animation
-        console.log('Quick Add Modal opened'); // Debug log
+        }, 0);
+        console.log('Quick Add Modal opened');
     });
 
     quickAddClose.addEventListener('click', function (event) {
@@ -1040,11 +1064,11 @@ document.addEventListener('DOMContentLoaded', function () {
             quickAddWellList.innerHTML = '';
             quickAddSearch.value = '';
             quickAddSearch.dataset.selectedIndex = -1;
-            console.log('Quick Add Modal closed'); // Debug log
-        }, 300); // Match CSS transition duration
+            console.log('Quick Add Modal closed');
+        }, 300);
     });
 
-    let wellsToShow = []; // Store filtered wells for selection
+    let wellsToShow = [];
 
     quickAddSearch.addEventListener('input', function () {
         quickAddSearch.dataset.selectedIndex = -1;
@@ -1081,7 +1105,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const value = quickAddSearch.value.trim().toLowerCase();
         quickAddWellList.innerHTML = '';
 
-        // Get names of already added wells
         const addedWellNames = new Set();
         const pointRows = document.querySelectorAll('.point-row');
         pointRows.forEach(row => {
@@ -1091,7 +1114,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Find the last added point's coordinates
         let lastCoords = null;
         for (let i = pointRows.length - 1; i >= 0; i--) {
             const coords = pointRows[i].querySelector('.pointCoords').value.trim();
@@ -1104,7 +1126,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Filter wells, excluding those already added
         wellsToShow = wells.filter(w => {
             const matchesSearch = value ? w.name.toLowerCase().includes(value) : true;
             const notAdded = !addedWellNames.has(w.name.toLowerCase());
@@ -1124,14 +1145,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (lastCoords) {
-            // Sort by proximity if lastCoords exists
             wellsToShow.sort((a, b) => {
                 const distA = turf.distance(turf.point([lastCoords.lon, lastCoords.lat]), turf.point([a.lon, a.lat]), { units: 'meters' });
                 const distB = turf.distance(turf.point([lastCoords.lon, lastCoords.lat]), turf.point([b.lon, b.lat]), { units: 'meters' });
                 return distA - distB;
             });
         } else if (value) {
-            // If no lastCoords and value present, use original sort logic
             wellsToShow.sort((a, b) => {
                 const aName = a.name.toLowerCase();
                 const bName = b.name.toLowerCase();
@@ -1149,11 +1168,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 return aExtra - bExtra;
             });
         } else {
-            // If no lastCoords and no value, sort alphabetically
             wellsToShow.sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        // Limit the number of wells displayed: 15 if search is empty, 40 if search has text
         wellsToShow = wellsToShow.slice(0, value ? 40 : 15);
 
         wellsToShow.forEach((well, index) => {
@@ -1192,7 +1209,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function makeModalDraggable(modalId, positionKey) {
-        // Only apply dragging to quickAddModal
         if (modalId !== 'quickAddModal') return;
 
         const modal = document.getElementById(modalId);
@@ -1205,15 +1221,13 @@ document.addEventListener('DOMContentLoaded', function () {
         let currentX = 0;
         let currentY = 0;
 
-        // Validate saved position
         const saved = localStorage.getItem(positionKey);
         let isValidPosition = false;
         if (saved) {
             try {
                 const { x, y } = JSON.parse(saved);
-                // Check if position is within screen bounds
-                const maxX = window.innerWidth - (content.offsetWidth || 400); // Assume 400px if not yet rendered
-                const maxY = window.innerHeight - (content.offsetHeight || 300); // Assume 300px if not yet rendered
+                const maxX = window.innerWidth - (content.offsetWidth || 400);
+                const maxY = window.innerHeight - (content.offsetHeight || 300);
                 if (x >= 0 && x <= maxX && y >= 0 && y <= maxY) {
                     currentX = x;
                     currentY = y;
@@ -1225,7 +1239,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (!isValidPosition) {
-            // Center the modal if no valid position
             currentX = (window.innerWidth - (content.offsetWidth || 400)) / 2;
             currentY = (window.innerHeight - (content.offsetHeight || 300)) / 2;
             localStorage.setItem(positionKey, JSON.stringify({ x: currentX, y: currentY }));
@@ -1298,14 +1311,14 @@ document.addEventListener('DOMContentLoaded', function () {
             opener.points = [];
             opener.lineCoords = [];
             opener.mapName = '';
-            console.log('Start Point Modal closed'); // Debug log
-        }, 300); // Match CSS transition duration
+            console.log('Start Point Modal closed');
+        }, 300);
     });
 
     startPointList.addEventListener('click', function (e) {
         const item = e.target.closest('.well-item');
         if (item) {
-            console.log('Start Point Modal button clicked:', item.textContent); // Debug log
+            console.log('Start Point Modal button clicked:', item.textContent);
             selectStartPoint(item);
         }
     });
@@ -1345,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('startPointModalBackdrop').style.display = 'none';
             startPointList.innerHTML = '';
             startPointList.dataset.selectedIndex = -1;
-            console.log('Start Point Modal closed after selection'); // Debug log
+            console.log('Start Point Modal closed after selection');
             if (!opener.points || !Array.isArray(opener.points)) {
                 alert('Ошибка: точки не загружены.');
                 return;
@@ -1355,7 +1368,142 @@ document.addEventListener('DOMContentLoaded', function () {
             opener.points = [];
             opener.lineCoords = [];
             opener.mapName = '';
-        }, 300); // Match CSS transition duration
+        }, 300);
+    }
+
+    // History Modal Functionality
+    const historyButton = document.getElementById('historyButton');
+    const historyModal = document.getElementById('historyModal');
+    const historyList = document.getElementById('historyList');
+    const historyModalClose = document.getElementById('historyModalClose');
+    const clearHistoryButton = document.getElementById('clearHistoryButton');
+
+    historyButton.addEventListener('click', function () {
+        historyModal.style.display = 'block';
+        document.getElementById('historyModalBackdrop').style.display = 'block';
+        setTimeout(() => {
+            historyModal.classList.add('show');
+            document.getElementById('historyModalBackdrop').classList.add('show');
+            updateHistoryList();
+        }, 0);
+        console.log('History Modal opened');
+    });
+
+    historyModalClose.addEventListener('click', function (event) {
+        event.stopPropagation();
+        historyModal.classList.remove('show');
+        document.getElementById('historyModalBackdrop').classList.remove('show');
+        setTimeout(() => {
+            historyModal.style.display = 'none';
+            document.getElementById('historyModalBackdrop').style.display = 'none';
+            historyList.innerHTML = '';
+            historyList.dataset.selectedIndex = -1;
+            console.log('History Modal closed');
+        }, 300);
+    });
+
+    clearHistoryButton.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (confirm('Вы уверены, что хотите очистить всю историю?')) {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify([]));
+            updateHistoryList();
+            console.log('History cleared');
+        }
+    });
+
+    historyList.addEventListener('click', function (e) {
+        const item = e.target.closest('.history-item');
+        const deleteButton = e.target.closest('.delete-history-item');
+        if (deleteButton) {
+            const id = parseInt(deleteButton.dataset.id);
+            let mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            mapHistory = mapHistory.filter(entry => entry.id !== id);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(mapHistory));
+            updateHistoryList();
+            console.log(`History item ${id} deleted`);
+            
+        } else if (item) {
+            const id = parseInt(item.dataset.id);
+            loadHistoryItem(id);
+        }
+    });
+
+    historyList.addEventListener('keydown', function (e) {
+        const items = historyList.querySelectorAll('.history-item');
+        let selectedIndex = parseInt(historyList.dataset.selectedIndex) || -1;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            const id = parseInt(items[selectedIndex].dataset.id);
+            loadHistoryItem(id);
+            return;
+        } else {
+            return;
+        }
+
+        items.forEach(item => item.classList.remove('selected'));
+        if (selectedIndex >= 0) {
+            items[selectedIndex].classList.add('selected');
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+        }
+        historyList.dataset.selectedIndex = selectedIndex;
+    });
+
+    function updateHistoryList() {
+        const mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        historyList.innerHTML = '';
+
+        if (mapHistory.length === 0) {
+            const item = document.createElement('div');
+            item.textContent = 'История пуста';
+            item.style.padding = '8px';
+            item.style.color = '#888';
+            item.style.fontStyle = 'italic';
+            item.style.textAlign = 'center';
+            item.style.verticalAlign = 'middle';
+            historyList.appendChild(item);
+            historyList.dataset.selectedIndex = -1;
+            return;
+        }
+
+        // Iterate over history in order (newest first, as unshift is used in saveMapToHistory)
+        mapHistory.forEach((entry, index) => {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.dataset.id = entry.id;
+            item.innerHTML = `
+                <span class="history-item-text">${entry.name}</span>
+                <span class="history-item-date">(${entry.timestamp})</span>
+                <button class="delete-history-item" data-id="${entry.id}">✖</button>
+            `;
+            item.style.cursor = 'pointer';
+            item.style.transition = 'background-color 0.2s';
+            historyList.appendChild(item);
+        });
+    }
+
+    function loadHistoryItem(id) {
+        const mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const entry = mapHistory.find(e => e.id === id);
+        if (entry) {
+            pushState();
+            loadPointsIntoUI(entry.points, entry.name);
+            historyModal.classList.remove('show');
+            document.getElementById('historyModalBackdrop').classList.remove('show');
+            setTimeout(() => {
+                historyModal.style.display = 'none';
+                document.getElementById('historyModalBackdrop').style.display = 'none';
+                historyList.innerHTML = '';
+                historyList.dataset.selectedIndex = -1;
+                console.log('History Modal closed after loading item');
+            }, 300);
+        }
     }
 
     window.kmlGenerator = {
