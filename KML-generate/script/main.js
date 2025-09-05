@@ -312,6 +312,10 @@ document.addEventListener('DOMContentLoaded', function () {
             saveDataToLocalStorage();
             ensureEmptyRowAtEnd();
             updatePointNumbers();
+            // Refresh Quick Add modal if open
+            if (document.getElementById('quickAddModal').classList.contains('show')) {
+                updateQuickAddWellList();
+            }
         });
 
         newPointRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
@@ -489,17 +493,12 @@ document.addEventListener('DOMContentLoaded', function () {
         hideSuggestions({ target: input });
         const row = input.closest('.point-row');
         setActiveRow(row, true);
-        const features = vectorSource.getFeatures();
-        if (features.length === 1) {
-            const coord = ol.proj.fromLonLat([well.lon, well.lat]);
-            map.getView().animate({
-                center: coord,
-                zoom: initialZoom,
-                duration: 500
-            });
-        } else {
-            fitToPoints();
-        }
+        const coord = ol.proj.fromLonLat([well.lon, well.lat]);
+        map.getView().animate({
+            center: coord,
+            duration: 500,
+            easing: ol.easing.easeOut
+        });
     }
 
     function movePointUp(event) {
@@ -553,8 +552,10 @@ document.addEventListener('DOMContentLoaded', function () {
         updateMap();
         saveDataToLocalStorage();
         updatePointNumbers();
-        localStorage.removeItem(MAP_NAME_KEY);
-        localStorage.removeItem(POINTS_KEY);
+        // Refresh Quick Add modal if open
+        if (document.getElementById('quickAddModal').classList.contains('show')) {
+            updateQuickAddWellList();
+        }
     });
 
     document.getElementById('generateKMLButton').addEventListener('click', function () {
@@ -729,6 +730,10 @@ document.addEventListener('DOMContentLoaded', function () {
         updateMap();
         ensureEmptyRowAtEnd();
         updatePointNumbers();
+        // Refresh Quick Add modal if open
+        if (document.getElementById('quickAddModal').classList.contains('show')) {
+            updateQuickAddWellList();
+        }
 
         let pointIdToHighlight = state.activePointId;
         if (!pointIdToHighlight && addedRows.length > 0) {
@@ -1020,9 +1025,10 @@ document.addEventListener('DOMContentLoaded', function () {
         quickAddModal.style.display = 'block';
         setTimeout(() => {
             quickAddModal.classList.add('show');
+            quickAddSearch.dataset.selectedIndex = -1;
+            updateQuickAddWellList();
+            quickAddSearch.focus();
         }, 0); // Ensure DOM update before animation
-        quickAddSearch.focus();
-        updateQuickAddWellList();
         console.log('Quick Add Modal opened'); // Debug log
     });
 
@@ -1033,71 +1039,140 @@ document.addEventListener('DOMContentLoaded', function () {
             quickAddModal.style.display = 'none';
             quickAddWellList.innerHTML = '';
             quickAddSearch.value = '';
+            quickAddSearch.dataset.selectedIndex = -1;
             console.log('Quick Add Modal closed'); // Debug log
         }, 300); // Match CSS transition duration
     });
 
+    let wellsToShow = []; // Store filtered wells for selection
+
     quickAddSearch.addEventListener('input', function () {
+        quickAddSearch.dataset.selectedIndex = -1;
         updateQuickAddWellList();
     });
 
     quickAddSearch.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-            const firstItem = document.querySelector('#quickAddWellList .well-item');
-            if (firstItem) {
-                selectQuickAddSuggestion(firstItem);
-            }
+        const items = quickAddWellList.querySelectorAll('.well-item');
+        let selectedIndex = parseInt(quickAddSearch.dataset.selectedIndex) || -1;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            selectQuickAddSuggestion(wellsToShow[selectedIndex]);
+            return;
+        } else {
+            return;
         }
+
+        items.forEach(item => item.classList.remove('selected'));
+        if (selectedIndex >= 0) {
+            items[selectedIndex].classList.add('selected');
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+        }
+        quickAddSearch.dataset.selectedIndex = selectedIndex;
     });
 
     function updateQuickAddWellList() {
         const value = quickAddSearch.value.trim().toLowerCase();
         quickAddWellList.innerHTML = '';
 
-        if (!value) return;
+        // Get names of already added wells
+        const addedWellNames = new Set();
+        const pointRows = document.querySelectorAll('.point-row');
+        pointRows.forEach(row => {
+            const name = row.querySelector('.pointName').value.trim();
+            if (name) {
+                addedWellNames.add(name.toLowerCase());
+            }
+        });
 
-        const filtered = wells
-            .filter(w => w.name.toLowerCase().includes(value))
-            .sort((a, b) => {
-                const aName = a.name.toLowerCase();
-                const bName = b.name.toLowerCase();
-                if (aName === value) return -1;
-                if (bName === value) return 1;
-                if (aName.startsWith(value) && !bName.startsWith(value)) return -1;
-                if (!aName.startsWith(value) && bName.startsWith(value)) return 1;
-                return aName.length - bName.length;
-            })
-            .slice(0, 50);
+        // Find the last added point's coordinates
+        let lastCoords = null;
+        for (let i = pointRows.length - 1; i >= 0; i--) {
+            const coords = pointRows[i].querySelector('.pointCoords').value.trim();
+            if (coords) {
+                const [lat, lon] = coords.split('/').map(parseFloat);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    lastCoords = { lat, lon };
+                    break;
+                }
+            }
+        }
 
-        if (filtered.length === 0) {
+        // Filter wells, excluding those already added
+        wellsToShow = wells.filter(w => {
+            const matchesSearch = value ? w.name.toLowerCase().includes(value) : true;
+            const notAdded = !addedWellNames.has(w.name.toLowerCase());
+            return matchesSearch && notAdded;
+        });
+
+        if (wellsToShow.length === 0) {
             const item = document.createElement('div');
-            item.textContent = 'Нет совпадений';
+            item.textContent = 'Нет доступных колодцев';
             item.style.padding = '8px';
             item.style.color = '#888';
             item.style.fontStyle = 'italic';
             item.style.textAlign = 'center';
             quickAddWellList.appendChild(item);
+            quickAddSearch.dataset.selectedIndex = -1;
             return;
         }
 
-        filtered.forEach(well => {
+        if (lastCoords) {
+            // Sort by proximity if lastCoords exists
+            wellsToShow.sort((a, b) => {
+                const distA = turf.distance(turf.point([lastCoords.lon, lastCoords.lat]), turf.point([a.lon, a.lat]), { units: 'meters' });
+                const distB = turf.distance(turf.point([lastCoords.lon, lastCoords.lat]), turf.point([b.lon, b.lat]), { units: 'meters' });
+                return distA - distB;
+            });
+        } else if (value) {
+            // If no lastCoords and value present, use original sort logic
+            wellsToShow.sort((a, b) => {
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+                if (aName === value) return -1;
+                if (bName === value) return 1;
+                const aStartsWith = aName.startsWith(value);
+                const bStartsWith = bName.startsWith(value);
+                if (aStartsWith && !bStartsWith) return -1;
+                if (!aStartsWith && bStartsWith) return 1;
+                const aIndex = aName.indexOf(value);
+                const bIndex = bName.indexOf(value);
+                const aExtra = aName.length - value.length;
+                const bExtra = bName.length - value.length;
+                if (aIndex !== bIndex) return aIndex - bIndex;
+                return aExtra - bExtra;
+            });
+        } else {
+            // If no lastCoords and no value, sort alphabetically
+            wellsToShow.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        // Limit the number of wells displayed: 15 if search is empty, 40 if search has text
+        wellsToShow = wellsToShow.slice(0, value ? 40 : 15);
+
+        wellsToShow.forEach((well, index) => {
             const item = document.createElement('div');
             item.textContent = well.name;
             item.className = 'well-item';
+            item.dataset.index = index;
             item.style.padding = '8px';
             item.style.cursor = 'pointer';
             item.style.borderRadius = '6px';
             item.style.transition = 'background-color 0.2s';
             item.addEventListener('click', function () {
-                selectQuickAddSuggestion(item);
+                selectQuickAddSuggestion(well);
             });
             quickAddWellList.appendChild(item);
         });
     }
 
-    function selectQuickAddSuggestion(item) {
-        const wellName = item.textContent;
-        const well = wells.find(w => w.name === wellName);
+    function selectQuickAddSuggestion(well) {
         if (well) {
             pushState();
             const newRow = addPointRow(well.name, `${well.lat.toFixed(6)}/${well.lon.toFixed(6)}`);
@@ -1106,7 +1181,12 @@ document.addEventListener('DOMContentLoaded', function () {
             ensureEmptyRowAtEnd();
             updatePointNumbers();
             setActiveRow(newRow, true);
-            fitToPoints();
+            const coord = ol.proj.fromLonLat([well.lon, well.lat]);
+            map.getView().animate({
+                center: coord,
+                duration: 500,
+                easing: ol.easing.easeOut
+            });
             updateQuickAddWellList();
         }
     }
@@ -1124,9 +1204,6 @@ document.addEventListener('DOMContentLoaded', function () {
         let offsetX, offsetY;
         let currentX = 0;
         let currentY = 0;
-
-        // Apply faster transition for dragging
-       
 
         // Validate saved position
         const saved = localStorage.getItem(positionKey);
@@ -1205,9 +1282,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     makeModalDraggable('quickAddModal', 'quickAddModalPosition');
-    // Dragging disabled for wellsModal and startPointModal
-    // makeModalDraggable('wellsModal', 'wellsModalPosition');
-    // makeModalDraggable('startPointModal', 'startPointModalPosition');
 
     const startPointModal = document.getElementById('startPointModal');
     const startPointList = document.getElementById('startPointList');
@@ -1220,6 +1294,7 @@ document.addEventListener('DOMContentLoaded', function () {
             startPointModal.style.display = 'none';
             document.getElementById('startPointModalBackdrop').style.display = 'none';
             startPointList.innerHTML = '';
+            startPointList.dataset.selectedIndex = -1;
             opener.points = [];
             opener.lineCoords = [];
             opener.mapName = '';
@@ -1231,26 +1306,57 @@ document.addEventListener('DOMContentLoaded', function () {
         const item = e.target.closest('.well-item');
         if (item) {
             console.log('Start Point Modal button clicked:', item.textContent); // Debug log
-            const startName = item.textContent;
-            startPointModal.classList.remove('show');
-            document.getElementById('startPointModalBackdrop').classList.remove('show');
-            setTimeout(() => {
-                startPointModal.style.display = 'none';
-                document.getElementById('startPointModalBackdrop').style.display = 'none';
-                startPointList.innerHTML = '';
-                console.log('Start Point Modal closed after selection'); // Debug log
-                if (!opener.points || !Array.isArray(opener.points)) {
-                    alert('Ошибка: точки не загружены.');
-                    return;
-                }
-                const sortedPoints = opener.sortPoints(startName, opener.points, opener.lineCoords || []);
-                loadPointsIntoUI(sortedPoints, opener.mapName);
-                opener.points = [];
-                opener.lineCoords = [];
-                opener.mapName = '';
-            }, 300); // Match CSS transition duration
+            selectStartPoint(item);
         }
     });
+
+    startPointList.addEventListener('keydown', function (e) {
+        const items = startPointList.querySelectorAll('.well-item');
+        let selectedIndex = parseInt(startPointList.dataset.selectedIndex) || -1;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            selectStartPoint(items[selectedIndex]);
+            return;
+        } else {
+            return;
+        }
+
+        items.forEach(item => item.classList.remove('selected'));
+        if (selectedIndex >= 0) {
+            items[selectedIndex].classList.add('selected');
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+        }
+        startPointList.dataset.selectedIndex = selectedIndex;
+    });
+
+    function selectStartPoint(item) {
+        const startName = item.textContent;
+        startPointModal.classList.remove('show');
+        document.getElementById('startPointModalBackdrop').classList.remove('show');
+        setTimeout(() => {
+            startPointModal.style.display = 'none';
+            document.getElementById('startPointModalBackdrop').style.display = 'none';
+            startPointList.innerHTML = '';
+            startPointList.dataset.selectedIndex = -1;
+            console.log('Start Point Modal closed after selection'); // Debug log
+            if (!opener.points || !Array.isArray(opener.points)) {
+                alert('Ошибка: точки не загружены.');
+                return;
+            }
+            const sortedPoints = opener.sortPoints(startName, opener.points, opener.lineCoords || []);
+            loadPointsIntoUI(sortedPoints, opener.mapName);
+            opener.points = [];
+            opener.lineCoords = [];
+            opener.mapName = '';
+        }, 300); // Match CSS transition duration
+    }
 
     window.kmlGenerator = {
         map: map,
