@@ -46,6 +46,7 @@
             <div class="btn">
                 <button id="toggleThemeButton">Тема</button>
                 <button id="loadWellsButton">Загрузить колодцы</button>
+                <button id="historyButton">История</button>
             </div>
             <div class="actions">
                 <button id="clearButton">Очистить все</button>
@@ -102,6 +103,22 @@
         </div>
     </div>
     <div id="wellsModalBackdrop" class="modal-backdrop"></div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                История сохраненных карт
+                <div class="btns">
+                <button id="clearHistoryButton" class="clear-history">🗑</button>
+                <button id="historyModalClose" class="close-modal">✕</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="historyList" class="well-list"></div>
+            </div>
+        </div>
+    </div>
+    <div id="historyModalBackdrop" class="modal-backdrop"></div>
 
     <script src="script/theme.js"></script>
     <script src="script/opener-kml.js"></script>
