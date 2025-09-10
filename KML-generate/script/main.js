@@ -1076,29 +1076,52 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     quickAddSearch.addEventListener('keydown', function (e) {
-        const items = quickAddWellList.querySelectorAll('.well-item');
-        let selectedIndex = parseInt(quickAddSearch.dataset.selectedIndex) || -1;
-
+        // Получаем все элементы списка .well-item
+        const items = Array.from(quickAddWellList.querySelectorAll('.well-item'));
+        // Получаем текущий выбранный индекс из dataset, с учетом его типа
+        let selectedIndex = parseInt(quickAddSearch.dataset.selectedIndex, 10);
+        if (isNaN(selectedIndex)) selectedIndex = -1;
+    
         if (e.key === 'ArrowDown') {
             e.preventDefault();
+            // Переходим к следующему элементу
             selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+            updateSelection(items, selectedIndex);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
+            // Переходим к предыдущему элементу
             selectedIndex = Math.max(selectedIndex - 1, -1);
-        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            updateSelection(items, selectedIndex);
+        } else if (e.key === 'Enter') {
             e.preventDefault();
-            selectQuickAddSuggestion(wellsToShow[selectedIndex]);
-            return;
-        } else {
-            return;
+            // Если ничего не выбрано, выбираем первый
+            if (selectedIndex < 0 && items.length > 0) {
+                selectedIndex = 0;
+                updateSelection(items, selectedIndex);
+            }
+            // Если выбран элемент
+            if (selectedIndex >= 0 && wellsToShow[selectedIndex]) {
+                selectQuickAddSuggestion(wellsToShow[selectedIndex]);
+                // После выбора сбрасываем состояние
+                selectedIndex = 0;
+                updateSelection(items, selectedIndex);
+                updateQuickAddWellList(); // обновляем список
+            }
         }
-
-        items.forEach(item => item.classList.remove('selected'));
-        if (selectedIndex >= 0) {
-            items[selectedIndex].classList.add('selected');
-            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+    
+        // Функция для обновления выделения
+        function updateSelection(items, index) {
+            // Убираем класс у всех элементов
+            items.forEach(item => item.classList.remove('selected'));
+            if (index >= 0 && index < items.length) {
+                // Добавляем класс для выделения
+                items[index].classList.add('selected');
+                // Скроллим вью к выделенному
+                items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+            // Обновляем индекс
+            quickAddSearch.dataset.selectedIndex = String(index);
         }
-        quickAddSearch.dataset.selectedIndex = selectedIndex;
     });
 
     function updateQuickAddWellList() {
@@ -1519,3 +1542,4 @@ document.addEventListener('DOMContentLoaded', function () {
         loadPointsIntoUI: loadPointsIntoUI
     };
 });
+
