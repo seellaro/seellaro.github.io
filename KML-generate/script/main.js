@@ -594,10 +594,24 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Helper function to escape XML special characters
+        function escapeXml(unsafe) {
+            return unsafe.replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"': return '&quot;';
+                    default: return c;
+                }
+            });
+        }
+
         let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
     <Document>
-        <name>${mapName}</name>
+        <name>${escapeXml(mapName)}</name>
 `;
 
         let cumulativeDistance = 0;
@@ -616,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             kmlContent += `
         <Placemark>
-            <name>${point.name}${distanceText}</name>
+            <name>${escapeXml(point.name)}${escapeXml(distanceText)}</name>
             <Point>
                 <coordinates>${point.longitude},${point.latitude}</coordinates>
             </Point>
@@ -628,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let lineStringCoords = points.map(point => `${point.longitude},${point.latitude}`).join(' ');
             kmlContent += `
         <Placemark>
-            <name>Route</name>
+            <name>${escapeXml('Route')}</name>
             <LineString>
                 <coordinates>${lineStringCoords}</coordinates>
             </LineString>
@@ -646,9 +660,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const kmlData = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
         const kmlURL = URL.createObjectURL(kmlData);
 
+        // Sanitize filename to allow Russian letters and hyphens, but remove other special characters
+        const sanitizedFileName = mapName
+            .replace(/[^\p{L}\p{N}\- ]/gu, '') // Allow Unicode letters, numbers, hyphens, and spaces
+            .trim()
+            .replace(/\s+/g, '_'); // Replace spaces with underscores
+
         const link = document.createElement('a');
         link.href = kmlURL;
-        link.download = `${mapName.replace(/[^a-zA-Z0-9]/g, '_')}.kml`;
+        link.download = `${sanitizedFileName || 'map'}.kml`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1542,4 +1562,5 @@ document.addEventListener('DOMContentLoaded', function () {
         loadPointsIntoUI: loadPointsIntoUI
     };
 });
+
 
