@@ -220,7 +220,6 @@ document.addEventListener('DOMContentLoaded', function () {
             saveDataToLocalStorage();
             ensureEmptyRowAtEnd();
             updatePointNumbers();
-            
         }
     });
 
@@ -231,7 +230,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const container = pointsContainer;
         const rowRect = row.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        const scrollPosition = row.offsetTop - container.offsetTop - (containerRect.height / 2 - rowRect.height / 2);
+
+        // Calculate scroll position to center the row
+        let offsetTop = row.offsetTop;
+        const placeholders = container.querySelectorAll('.point-row-placeholder');
+        placeholders.forEach(placeholder => {
+            if (placeholder.offsetTop < row.offsetTop) {
+                offsetTop -= placeholder.offsetHeight;
+            }
+        });
+
+        // Center the row by adjusting scrollTop to position the row in the middle of the container
+        const scrollPosition = offsetTop - (containerRect.height / 2 - rowRect.height / 2);
         container.scrollTo({
             top: scrollPosition,
             behavior: 'smooth'
@@ -258,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     pointsContainer.addEventListener('click', function (event) {
         const row = event.target.closest('.point-row');
-        if (row && !event.target.matches('button') && !event.target.closest('.suggestions')) {
+        if (row && !event.target.matches('.removePointButton') && !event.target.closest('.suggestions') && !event.target.closest('.drag-handle')) {
             setActiveRow(row, true);
         }
     });
@@ -274,13 +284,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const newPointRow = document.createElement('div');
         newPointRow.classList.add('point-row');
         newPointRow.dataset.pointId = pointId;
+        newPointRow.draggable = true;
 
         newPointRow.innerHTML = `
+            <span class="drag-handle">☰</span>
             <span class="point-number"></span>
             <input type="text" class="pointName" placeholder="Название точки">
             <input type="text" class="pointCoords" placeholder="55.7558/37.6173">
-            <button class="move-button" data-direction="up">▲</button>
-            <button class="move-button" data-direction="down">▼</button>
             <button class="removePointButton">✖</button>
         `;
 
@@ -299,6 +309,12 @@ document.addEventListener('DOMContentLoaded', function () {
         pointsContainer.appendChild(newPointRow);
         updatePointNumbers();
 
+        newPointRow.addEventListener('dragstart', handleDragStart);
+        newPointRow.addEventListener('dragover', handleDragOver);
+        newPointRow.addEventListener('dragend', handleDragEnd);
+        newPointRow.addEventListener('dragenter', handleDragEnter);
+        newPointRow.addEventListener('dragleave', handleDragLeave);
+
         newPointRow.querySelector('.removePointButton').addEventListener('click', function () {
             const rows = document.querySelectorAll('.point-row');
             const currentName = nameInput.value.trim();
@@ -312,14 +328,10 @@ document.addEventListener('DOMContentLoaded', function () {
             saveDataToLocalStorage();
             ensureEmptyRowAtEnd();
             updatePointNumbers();
-            // Refresh Quick Add modal if open
             if (document.getElementById('quickAddModal').classList.contains('show')) {
                 updateQuickAddWellList();
             }
         });
-
-        newPointRow.querySelector('.move-button[data-direction="up"]').addEventListener('click', movePointUp);
-        newPointRow.querySelector('.move-button[data-direction="down"]').addEventListener('click', movePointDown);
 
         nameInput.addEventListener('input', function (e) {
             debounce(() => {
@@ -344,6 +356,171 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         return newPointRow;
+    }
+
+    let draggedRow = null;
+    let dragStartY = 0;
+    let initialTop = 0;
+
+    function handleDragStart(e) {
+        draggedRow = e.target.closest('.point-row');
+        draggedRow.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedRow.dataset.pointId);
+
+        const emptyImage = new Image();
+        emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        e.dataTransfer.setDragImage(emptyImage, 0, 0);
+
+        const rect = draggedRow.getBoundingClientRect();
+        dragStartY = e.clientY;
+        initialTop = rect.top;
+
+        draggedRow.style.position = 'absolute';
+        draggedRow.style.width = `${rect.width}px`;
+        draggedRow.style.top = `${rect.top + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
+        draggedRow.style.zIndex = '1000';
+
+        const placeholder = document.createElement('div');
+        placeholder.classList.add('point-row-placeholder');
+        placeholder.style.height = `${rect.height}px`;
+        placeholder.dataset.pointId = draggedRow.dataset.pointId;
+        draggedRow.parentNode.insertBefore(placeholder, draggedRow.nextSibling);
+
+        pointsContainer.addEventListener('wheel', handleWheelDuringDrag);
+
+        updatePointNumbers();
+    }
+
+    function handleDrag(e) {
+        if (!draggedRow) return;
+
+        const containerRect = pointsContainer.getBoundingClientRect();
+        const deltaY = e.clientY - dragStartY;
+        draggedRow.style.top = `${initialTop + deltaY + pointsContainer.scrollTop - containerRect.top}px`;
+
+        const rows = Array.from(pointsContainer.querySelectorAll('.point-row:not(.dragging), .point-row-placeholder'));
+        let closestRow = null;
+        let minDistance = Infinity;
+        let insertBefore = true;
+
+        rows.forEach(row => {
+            const rect = row.getBoundingClientRect();
+            const rowCenter = rect.top + rect.height / 2;
+            const dragCenter = e.clientY;
+            const distance = Math.abs(dragCenter - rowCenter);
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestRow = row;
+                insertBefore = dragCenter < rowCenter;
+            }
+        });
+
+        const placeholder = pointsContainer.querySelector('.point-row-placeholder');
+        if (closestRow && placeholder) {
+            if (insertBefore) {
+                closestRow.parentNode.insertBefore(placeholder, closestRow);
+            } else {
+                closestRow.parentNode.insertBefore(placeholder, closestRow.nextSibling);
+            }
+        }
+
+        updatePointNumbers();
+    }
+
+    function handleWheelDuringDrag(e) {
+        e.preventDefault();
+        const container = pointsContainer;
+        const scrollSpeed = 20;
+        container.scrollTop += e.deltaY > 0 ? scrollSpeed : -scrollSpeed;
+
+        if (draggedRow) {
+            const containerRect = container.getBoundingClientRect();
+            draggedRow.style.top = `${parseFloat(draggedRow.style.top) + (e.deltaY > 0 ? scrollSpeed : -scrollSpeed)}px`;
+        }
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        if (!draggedRow) return;
+
+        const deltaY = e.clientY - dragStartY;
+        const newTop = initialTop + deltaY;
+        draggedRow.style.top = `${newTop + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
+
+        const rows = Array.from(pointsContainer.querySelectorAll('.point-row:not(.dragging)'));
+        const placeholder = pointsContainer.querySelector('.point-row-placeholder');
+        let targetRow = null;
+        let insertBefore = false;
+
+        for (const row of rows) {
+            const rect = row.getBoundingClientRect();
+            const rowMid = rect.top + rect.height / 2;
+            if (e.clientY < rowMid) {
+                targetRow = row;
+                insertBefore = true;
+                break;
+            } else if (e.clientY < rect.bottom) {
+                targetRow = row;
+                insertBefore = false;
+                break;
+            }
+        }
+
+        if (targetRow) {
+            pointsContainer.insertBefore(placeholder, insertBefore ? targetRow : targetRow.nextSibling);
+        } else if (e.clientY > rows[rows.length - 1]?.getBoundingClientRect().bottom) {
+            pointsContainer.appendChild(placeholder);
+        }
+
+        updatePointNumbers();
+    }
+
+    function handleDragEnd(e) {
+        if (draggedRow) {
+            draggedRow.classList.remove('dragging');
+            draggedRow.style.position = '';
+            draggedRow.style.width = '';
+            draggedRow.style.top = '';
+            draggedRow.style.zIndex = '';
+
+            const placeholder = pointsContainer.querySelector('.point-row-placeholder');
+            if (placeholder) {
+                placeholder.parentNode.replaceChild(draggedRow, placeholder);
+            }
+
+            draggedRow = null;
+            updatePointNumbers();
+            updateMap();
+            saveDataToLocalStorage();
+
+            pointsContainer.removeEventListener('wheel', handleWheelDuringDrag);
+        }
+    }
+
+    function handleDragEnter(e) {
+        const row = e.target.closest('.point-row:not(.dragging)');
+        if (row) {
+            row.classList.add('drag-over');
+        }
+    }
+
+    function handleDragLeave(e) {
+        const row = e.target.closest('.point-row:not(.dragging)');
+        if (row) {
+            row.classList.remove('drag-over');
+        }
+    }
+
+    function updateRowPositions() {
+        const rows = Array.from(pointsContainer.querySelectorAll('.point-row:not(.dragging)'));
+        rows.forEach((row, index) => {
+            row.style.transform = `translateY(0)`;
+            row.style.transition = 'transform 0.2s ease-out';
+        });
     }
 
     function removeTrailingEmptyRows() {
@@ -501,38 +678,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function movePointUp(event) {
-        const row = event.target.closest('.point-row');
-        if (!row) return;
-
-        const prevRow = row.previousElementSibling;
-        if (!prevRow) return;
-
-        pushState();
-        pointsContainer.insertBefore(row, prevRow);
-        updateMap();
-        saveDataToLocalStorage();
-        ensureEmptyRowAtEnd();
-        updatePointNumbers();
-        setActiveRow(row, false);
-    }
-
-    function movePointDown(event) {
-        const row = event.target.closest('.point-row');
-        if (!row) return;
-
-        const nextRow = row.nextElementSibling;
-        if (!nextRow) return;
-
-        pushState();
-        pointsContainer.insertBefore(nextRow, row);
-        updateMap();
-        saveDataToLocalStorage();
-        ensureEmptyRowAtEnd();
-        updatePointNumbers();
-        setActiveRow(row, false);
-    }
-
     document.getElementById('addPointButton').addEventListener('click', function () {
         pushState();
         const newRow = addPointRow('', '');
@@ -552,7 +697,6 @@ document.addEventListener('DOMContentLoaded', function () {
         updateMap();
         saveDataToLocalStorage();
         updatePointNumbers();
-        // Refresh Quick Add modal if open
         if (document.getElementById('quickAddModal').classList.contains('show')) {
             updateQuickAddWellList();
         }
@@ -560,7 +704,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function saveMapToHistory(mapName, points, kmlContent) {
         let mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        // Prepend new entry to the history array to make it appear at the top
         mapHistory.unshift({
             id: Date.now(),
             name: mapName,
@@ -594,7 +737,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Helper function to escape XML special characters
         function escapeXml(unsafe) {
             return unsafe.replace(/[<>&'"]/g, function (c) {
                 switch (c) {
@@ -654,17 +796,15 @@ document.addEventListener('DOMContentLoaded', function () {
     </Document>
 </kml>`;
 
-        // Save to history
         saveMapToHistory(mapName, points, kmlContent);
 
         const kmlData = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
         const kmlURL = URL.createObjectURL(kmlData);
 
-        // Sanitize filename to allow Russian letters and hyphens, but remove other special characters
         const sanitizedFileName = mapName
-            .replace(/[^\p{L}\p{N}\- ]/gu, '') // Allow Unicode letters, numbers, hyphens, and spaces
+            .replace(/[^\p{L}\p{N}\- ]/gu, '')
             .trim()
-            .replace(/\s+/g, '_'); // Replace spaces with underscores
+            .replace(/\s+/g, '_');
 
         const link = document.createElement('a');
         link.href = kmlURL;
@@ -766,7 +906,6 @@ document.addEventListener('DOMContentLoaded', function () {
         updateMap();
         ensureEmptyRowAtEnd();
         updatePointNumbers();
-        // Refresh Quick Add modal if open
         if (document.getElementById('quickAddModal').classList.contains('show')) {
             updateQuickAddWellList();
         }
@@ -837,10 +976,8 @@ document.addEventListener('DOMContentLoaded', function () {
         pointsContainer.innerHTML = '';
         pointIdCounter = 0;
         pointsToLoad.forEach(point => {
-            // Handle both {lat, lon} and {latitude, longitude} formats
             const lat = point.latitude !== undefined ? point.latitude : point.lat;
             const lon = point.longitude !== undefined ? point.longitude : point.lon;
-            // Validate coordinates
             if (typeof lat === 'number' && !isNaN(lat) && typeof lon === 'number' && !isNaN(lon)) {
                 addPointRow(point.name || '', `${lat.toFixed(6)}/${lon.toFixed(6)}`);
             } else {
@@ -936,10 +1073,10 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => {
             wellsModal.classList.add('show');
             document.getElementById('wellsModalBackdrop').classList.add('show');
+            wellsDropZone.style.display = 'block';
+            loadingAnimation.style.display = 'none';
+            console.log('Wells Modal opened');
         }, 0);
-        wellsDropZone.style.display = 'block';
-        loadingAnimation.style.display = 'none';
-        console.log('Wells Modal opened');
     });
 
     wellsModalClose.addEventListener('click', function (event) {
@@ -1096,52 +1233,29 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     quickAddSearch.addEventListener('keydown', function (e) {
-        // Получаем все элементы списка .well-item
-        const items = Array.from(quickAddWellList.querySelectorAll('.well-item'));
-        // Получаем текущий выбранный индекс из dataset, с учетом его типа
-        let selectedIndex = parseInt(quickAddSearch.dataset.selectedIndex, 10);
-        if (isNaN(selectedIndex)) selectedIndex = -1;
-    
+        const items = quickAddWellList.querySelectorAll('.well-item');
+        let selectedIndex = parseInt(quickAddSearch.dataset.selectedIndex) || -1;
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            // Переходим к следующему элементу
             selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-            updateSelection(items, selectedIndex);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            // Переходим к предыдущему элементу
             selectedIndex = Math.max(selectedIndex - 1, -1);
-            updateSelection(items, selectedIndex);
-        } else if (e.key === 'Enter') {
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
             e.preventDefault();
-            // Если ничего не выбрано, выбираем первый
-            if (selectedIndex < 0 && items.length > 0) {
-                selectedIndex = 0;
-                updateSelection(items, selectedIndex);
-            }
-            // Если выбран элемент
-            if (selectedIndex >= 0 && wellsToShow[selectedIndex]) {
-                selectQuickAddSuggestion(wellsToShow[selectedIndex]);
-                // После выбора сбрасываем состояние
-                selectedIndex = 0;
-                updateSelection(items, selectedIndex);
-                updateQuickAddWellList(); // обновляем список
-            }
+            selectQuickAddSuggestion(wellsToShow[selectedIndex]);
+            return;
+        } else {
+            return;
         }
-    
-        // Функция для обновления выделения
-        function updateSelection(items, index) {
-            // Убираем класс у всех элементов
-            items.forEach(item => item.classList.remove('selected'));
-            if (index >= 0 && index < items.length) {
-                // Добавляем класс для выделения
-                items[index].classList.add('selected');
-                // Скроллим вью к выделенному
-                items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-            // Обновляем индекс
-            quickAddSearch.dataset.selectedIndex = String(index);
+
+        items.forEach(item => item.classList.remove('selected'));
+        if (selectedIndex >= 0) {
+            items[selectedIndex].classList.add('selected');
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
         }
+        quickAddSearch.dataset.selectedIndex = selectedIndex;
     });
 
     function updateQuickAddWellList() {
@@ -1414,7 +1528,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 300);
     }
 
-    // History Modal Functionality
     const historyButton = document.getElementById('historyButton');
     const historyModal = document.getElementById('historyModal');
     const historyList = document.getElementById('historyList');
@@ -1464,7 +1577,6 @@ document.addEventListener('DOMContentLoaded', function () {
             localStorage.setItem(HISTORY_KEY, JSON.stringify(mapHistory));
             updateHistoryList();
             console.log(`History item ${id} deleted`);
-            
         } else if (item) {
             const id = parseInt(item.dataset.id);
             loadHistoryItem(id);
@@ -1515,7 +1627,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Iterate over history in order (newest first, as unshift is used in saveMapToHistory)
         mapHistory.forEach((entry, index) => {
             const item = document.createElement('div');
             item.className = 'history-item';
@@ -1562,5 +1673,3 @@ document.addEventListener('DOMContentLoaded', function () {
         loadPointsIntoUI: loadPointsIntoUI
     };
 });
-
-
