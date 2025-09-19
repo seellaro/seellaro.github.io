@@ -1,3 +1,4 @@
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -93,8 +94,9 @@ body.dark-theme input[type="text"] {
     align-items: center;
     border-radius: 20px;
     padding: 4px;
-    transition: background-color 0.5s ease-out, box-shadow 0.5s ease-out, transform 0.2s ease-out;
+    transition: transform 0.2s ease-out, background-color 0.5s ease-out, box-shadow 0.5s ease-out;
     position: relative;
+    will-change: transform;
 }
 
 body.dark-theme .point-row {
@@ -137,6 +139,56 @@ body.dark-theme .point-row input {
     font-weight: bold;
     color: inherit;
     font-size: 14px;
+}
+
+.drag-handle {
+    cursor: grab;
+    margin-right: 5px;
+    font-size: 16px;
+    color: #313131ad;
+    padding: 4px;
+    user-select: none;
+}
+
+body.dark-theme .drag-handle {
+    color: #ddddddad;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.point-row.dragging {
+    opacity: 0.7;
+    background-color: #91d3ff4b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    z-index: 1000;
+    transform: scale(1.02);
+}
+
+body.dark-theme .point-row.dragging {
+    background-color: #2a4a6a4b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.point-row.drag-over {
+    background-color: #91d3ff2f;
+}
+
+body.dark-theme .point-row.drag-over {
+    background-color: #2a4a6a2f;
+}
+
+.point-row-placeholder {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    margin-bottom: 5px;
+    transition: all 0.2s ease-out;
+}
+
+body.dark-theme .point-row-placeholder {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 button {
@@ -293,36 +345,6 @@ body.dark-theme .ol-control button {
     height: 20px;
 }
 
-.move-button {
-    margin: 3px;
-    color: #313131ad;
-    border: none;
-    padding: 5px;
-    height: 30px;
-    width: 30px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: color 0.5s ease-out, background-color 0.5s ease-out, box-shadow 0.5s ease-out;
-}
-
-body.dark-theme .move-button {
-    color: #ddddddad;
-}
-
-#pointsContainer {
-    padding: 8px;
-    height: 400px;
-    border-radius: 30px;
-    overflow-y: scroll;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.123);
-    transition: box-shadow 0.5s ease-out;
-}
-
-body.dark-theme #pointsContainer {
-    box-shadow: none;
-    background-color: #0000001c;
-}
-
 .removePointButton {
     color: #313131ad;
     justify-content: center;
@@ -344,6 +366,21 @@ body.dark-theme .removePointButton {
 
 body.dark-theme .removePointButton:hover {
     background-color: #8a2a2a63;
+}
+
+#pointsContainer {
+    padding: 8px;
+    height: 400px;
+    border-radius: 30px;
+    overflow-y: scroll;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.123);
+    transition: box-shadow 0.5s ease-out;
+    position: relative;
+}
+
+body.dark-theme #pointsContainer {
+    box-shadow: none;
+    background-color: #0000001c;
 }
 
 #pointsContainer::-webkit-scrollbar {
@@ -486,7 +523,7 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
 }
 
 .modal-content {
-    transition: opacity 0.3s ease-out;
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
     opacity: 0;
 }
 
@@ -494,9 +531,11 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
 }
+
 #quickAddModal .modal-content {
-    transition: opacity 0.3s ease-out; /* Faster dragging for Quick Add */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
+
 .modal-backdrop {
     backdrop-filter: blur(2px);
     position: fixed;
@@ -512,7 +551,7 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
 }
 
 .modal-backdrop.show {
-     display: block;
+    display: block;
     opacity: 1;
     visibility: visible;
 }
@@ -783,7 +822,8 @@ body.dark-theme .history-item.selected {
 .history-item-text {
     flex: 1;
 }
-.history-item-date{
+
+.history-item-date {
     font-size: 10px;
 }
 
