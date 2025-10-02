@@ -1,3 +1,4 @@
+//opener-kml.js
 let opener = {
     points: [],
     lineCoords: [],
