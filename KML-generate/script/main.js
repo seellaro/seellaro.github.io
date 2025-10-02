@@ -523,36 +523,52 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function removeTrailingEmptyRows() {
-        const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
-        while (rows.length > 0) {
-            const lastRow = rows[rows.length - 1];
-            const name = lastRow.querySelector('.pointName').value.trim();
-            const coords = lastRow.querySelector('.pointCoords').value.trim();
-            if (name === '' && coords === '') {
-                lastRow.remove();
-                rows.pop();
-            } else {
-                break;
-            }
-        }
-    }
-
-    function ensureEmptyRowAtEnd() {
-        const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
-        if (rows.length === 0) {
-            const newRow = addPointRow('', '');
-            updatePointNumbers();
-            return;
-        }
+function removeTrailingEmptyRows() {
+    const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
+    while (rows.length > 0) {
         const lastRow = rows[rows.length - 1];
-        const name = lastRow.querySelector('.pointName').value.trim();
-        const coords = lastRow.querySelector('.pointCoords').value.trim();
-        if (name !== '' || coords !== '') {
-            const newRow = addPointRow('', '');
-            updatePointNumbers();
+        const nameInput = lastRow.querySelector('.pointName');
+        const coordsInput = lastRow.querySelector('.pointCoords');
+        if (!nameInput || !coordsInput) {
+            // Invalid row, remove it
+            lastRow.remove();
+            rows.pop();
+            continue;
+        }
+        const name = nameInput.value.trim();
+        const coords = coordsInput.value.trim();
+        if (name === '' && coords === '') {
+            lastRow.remove();
+            rows.pop();
+        } else {
+            break;
         }
     }
+}
+
+function ensureEmptyRowAtEnd() {
+    const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
+    if (rows.length === 0) {
+        const newRow = addPointRow('', '');
+        updatePointNumbers();
+        return;
+    }
+    const lastRow = rows[rows.length - 1];
+    const nameInput = lastRow.querySelector('.pointName');
+    const coordsInput = lastRow.querySelector('.pointCoords');
+    if (!nameInput || !coordsInput) {
+        // Invalid row, remove it and recheck
+        lastRow.remove();
+        ensureEmptyRowAtEnd();
+        return;
+    }
+    const name = nameInput.value.trim();
+    const coords = coordsInput.value.trim();
+    if (name !== '' || coords !== '') {
+        const newRow = addPointRow('', '');
+        updatePointNumbers();
+    }
+}
 
     function updatePointNumbers() {
         const rows = pointsContainer.querySelectorAll('.point-row');
