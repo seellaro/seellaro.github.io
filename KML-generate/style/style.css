@@ -533,7 +533,7 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
 }
 
 #quickAddModal .modal-content {
-    transition: opacity 0.3s ease-out, transform 0.1s ease-out;
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
 .modal-backdrop {
@@ -847,4 +847,3 @@ body.dark-theme .history-item button {
 body.dark-theme .history-item button:hover {
     background-color: #8a2a2a63;
 }
-
