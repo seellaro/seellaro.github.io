@@ -1408,6 +1408,7 @@ document.addEventListener('DOMContentLoaded', function () {
             content.style.left = '0';
             content.style.top = '0';
             content.style.transform = `translate(${currentX}px, ${currentY}px)`;
+            content.style.transition = ''; // Remove transition to disable smooth animation
         }
 
         function boundPosition() {
@@ -1433,7 +1434,8 @@ document.addEventListener('DOMContentLoaded', function () {
             currentX = e.clientX - offsetX;
             currentY = e.clientY - offsetY;
             boundPosition();
-            content.style.transform = `translate(${currentX}px, ${currentY}px)`;
+            content.style.transform = `translate(${currentX}px, ${currentY}px)`; // Update position instantly
+            content.style.transition = ''; // Ensure no transition during dragging
         });
 
         document.addEventListener('mouseup', () => {
@@ -1441,12 +1443,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 isDragging = false;
                 boundPosition();
                 localStorage.setItem(positionKey, JSON.stringify({ x: currentX, y: currentY }));
+                content.style.transition = ''; // Reset transition after dragging
             }
         });
 
         window.addEventListener('resize', () => {
             boundPosition();
             content.style.transform = `translate(${currentX}px, ${currentY}px)`;
+            content.style.transition = ''; // No transition on resize
             localStorage.setItem(positionKey, JSON.stringify({ x: currentX, y: currentY }));
         });
     }
@@ -1469,7 +1473,7 @@ document.addEventListener('DOMContentLoaded', function () {
             opener.lineCoords = [];
             opener.mapName = '';
             console.log('Start Point Modal closed');
-        }, 300);
+        }, 100);
     });
 
     startPointList.addEventListener('click', function (e) {
