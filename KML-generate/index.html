@@ -21,11 +21,12 @@
                     <input type="text" id="mapName" placeholder="Введите название карты">
                 </div>
                 <div class="form-section">
-                    <label>Точки:</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label>Точки:</label>
+                        <button id="sortPointsButton" style="display: none; padding: 4px 8px; font-size: 12px;">Отсортировать</button>
+                    </div>
                     <div id="pointsContainer" class="points-container">
-                        <div class="point-row">
-                    
-                        </div>
+                       
                     </div>
                     <div class="add-btn">
                         <button id="addPointButton">Добавить точку</button>
@@ -81,9 +82,17 @@
         <div class="modal-content">
             <div class="modal-header">
                 Загрузка колодцев
-                <button id="wellsModalClose" class="close-modal">✕</button>
+                <div class="btns">
+                  
+                    <button id="wellsModalClose" class="close-modal">✕</button>
+                </div>
             </div>
             <div class="modal-body">
+                <!-- Список файлов (по умолчанию скрыт) -->
+                <div id="wellsFileList" class="well-list" style="display: none;">
+                    <!-- Список файлов будет загружен сюда через JS -->
+                </div>
+                <!-- Drop Zone (по умолчанию видим) -->
                 <div id="wellsDropZone" class="drop_zone">
                     Перетащите сюда XLSX файл с колодцами <br> Желательно содержащий только: Название, lat, long.
                 </div>
@@ -109,15 +118,32 @@
                 </div>
             </div>
             <div class="modal-body">
+                
                 <div id="historyList" class="well-list"></div>
             </div>
         </div>
     </div>
     <div id="historyModalBackdrop" class="modal-backdrop"></div>
+    <div id="lineChoiceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Загрузка KML
+                <button id="lineChoiceClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 20px;">
+                <p>Как загрузить точки?</p>
+                <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+                    <button id="loadWithLinesBtn" class="btn">С линиями</button>
+                    <button id="loadWithoutLinesBtn" class="btn">Без линий</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="lineChoiceModalBackdrop" class="modal-backdrop"></div>
+
 
     <script src="script/theme.js"></script>
     <script src="script/opener-kml.js"></script>
     <script src="script/main.js"></script>
 </body>
 </html>
-
