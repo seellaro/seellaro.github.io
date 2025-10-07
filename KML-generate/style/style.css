@@ -164,7 +164,8 @@ body.dark-theme .drag-handle {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     position: absolute;
     z-index: 1000;
-    transform: scale(1.02);
+    
+    transition: transform 0.2s ease-out;
 }
 
 body.dark-theme .point-row.dragging {
@@ -193,7 +194,8 @@ body.dark-theme .point-row-placeholder {
 
 button {
     background-color: #00000000;
-    color: white;
+  
+    color: #313131cc;
     padding: 10px 15px;
     border: none;
     border-radius: 20px;
@@ -207,12 +209,12 @@ body.dark-theme button {
 }
 
 button:hover {
-    background-color: #b6b6b677;
+    background-color: #91d3ff4b;
     transition: background-color 0.5s ease-out;
 }
 
 body.dark-theme button:hover {
-    background-color: #4a4a4a77;
+    background-color: #2a4a6a4b;
 }
 
 .add-btn {
@@ -533,7 +535,7 @@ body.dark-theme .suggestions::-webkit-scrollbar-thumb {
 }
 
 #quickAddModal .modal-content {
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    transition: opacity 0.3s ease-out, transform 0.1s ease-out;
 }
 
 .modal-backdrop {
@@ -766,6 +768,62 @@ body.dark-theme .well-list::-webkit-scrollbar-thumb {
     background-color: #666;
 }
 
+.delete-well-file {
+    font-size: 11px;
+    margin-left: 10px;
+    color: #313131ad;
+    height: 24px;
+    width: 24px;
+    padding: 4px;
+}
+body.dark-theme .delete-well-file {
+    color: #ddddddad;
+}
+
+.delete-well-file:hover {
+    background-color: #ff6c6c63;
+}
+
+body.dark-theme .delete-well-file:hover {
+    background-color: #8a2a2a63;
+}
+#wellsModal .modal-content,
+#startPointModal .modal-content,
+#historyModal .modal-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#toggleWellsModeButton{   
+    text-align: center;
+    z-index: 9999;
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    height: 24px;
+    width: 24px;
+    line-height: 1;
+    padding: 4px;
+    margin: 0;
+    color: #888;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+#toggleWellsModeButton:hover {
+    background-color: #91d3ff4b;
+}
+
+body.dark-theme #toggleWellsModeButton {
+    color: #aaa;
+}
+
+body.dark-theme #toggleWellsModeButton:hover {
+    background-color: #2a4a6a4b;
+}
+
 .sub-header {
     font-size: 14px;
     color: #777;
@@ -840,10 +898,82 @@ body.dark-theme .history-item button {
     color: #ddddddad;
 }
 
-.history-item button:hover {
+.delete-history-item:hover {
     background-color: #ff6c6c63;
 }
 
-body.dark-theme .history-item button:hover {
+body.dark-theme .delete-history-item:hover {
     background-color: #8a2a2a63;
+}
+.download-history-item:hover {
+    background-color: #91ff9a7e;
+}
+body.dark-theme .download-history-item:hover {
+    background-color: #3686457c;
+}
+.switch{
+    display: flex;
+}
+.switch-btn{
+    flex-grow: 1;
+    margin-inline: 4px;
+    padding: 4px 0;
+    border-bottom: 2px solid #ffffff00;
+}
+.switch-btn:hover{
+    border-bottom: 2px solid #2e82ff75;
+}
+.switch-btn:active{
+    border-bottom: 2px solid #2e82ff75;
+}
+#lineChoiceModal .modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0;
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+#lineChoiceModal.show .modal-content {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+#lineChoiceModal .btn {
+    padding-inline: 50px;
+    background-color: #ffffff2a;
+    color: #313131cc;
+    margin-top: 6px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.055);
+}
+body.dark-theme #lineChoiceModal .btn  {
+    background-color: #0000001c;
+    color: #ddddddcc;
+}
+
+#lineChoiceModal .btn:hover {
+    background-color: #91d3ff1d;
+    transition: background-color 0.1s ease-out;
+}
+
+body.dark-theme #lineChoiceModal .btn:hover {
+    background-color: #2a4a6a33;
+}
+
+.ol-control button {
+    text-align: center;
+    padding-left: 100%;
+    background-color: #ffffff3d;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin: 2px;
+    padding: 2px;
+    cursor: pointer;
+    transition: background-color 0.5s ease-out, border-color 0.5s ease-out;
+    box-shadow: none;
+}
+
+body.dark-theme .ol-control button {
+    background-color: #0000003d;
+    border-color: #666;
 }
