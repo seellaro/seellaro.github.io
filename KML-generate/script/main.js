@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', function () {
     const pointsContainer = document.getElementById('pointsContainer');
     const mapNameInput = document.getElementById('mapName');
@@ -14,12 +15,34 @@ document.addEventListener('DOMContentLoaded', function () {
     let buildingSource = new ol.source.Vector({ features: [] });
     let wells = [];
     let history = [];
+    let currentHistoryMode = localStorage.getItem('history_mode') || 'lich';
+    window.kmlLineSource = new ol.source.Vector({ features: [] });
+    let kmlWithLinesMode = false; // флаг: загружен ли KML с линиями
+    let digitInputBuffer = '';
+    let digitInputTimeout = null;
+    let lastExplicitIndex = null
+
+    const kmlLineLayer = new ol.layer.Vector({
+        source: kmlLineSource,
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: 'rgba(0, 211, 248, 0.36)', // Синий цвет
+                width: 4
+            })
+        }),
+        zIndex: 1
+    });
+    window.kmlLineLayer = kmlLineLayer;
+
+
+
 
     function getLineStyle() {
         const isDark = document.body.classList.contains('dark-theme');
+        // Прозрачная линия маршрута по точкам
         return new ol.style.Style({
             stroke: new ol.style.Stroke({
-                color: isDark ? '#511f1fff' : '#d05555ff',
+                color: isDark ? 'rgba(81, 31, 31, 1)' : 'rgba(208, 85, 85, 1)',
                 width: 4
             })
         });
@@ -56,6 +79,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+
+
+
     const pointLayer = new ol.layer.Vector({
         source: vectorSource,
         style: getPointStyle,
@@ -67,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
         style: getLineStyle,
         zIndex: 1
     });
+
 
     const buildingLayer = new ol.layer.Vector({
         source: buildingSource,
@@ -92,9 +119,49 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const map = new ol.Map({
         target: 'map',
-        layers: [baseLayer, buildingLayer, pointLayer, lineLayer],
+        layers: [baseLayer, buildingLayer, pointLayer, lineLayer, kmlLineLayer],
         view: initialView
     });
+    map.getInteractions().forEach(interaction => {
+        if (interaction instanceof ol.interaction.DoubleClickZoom) {
+            map.removeInteraction(interaction);
+        }
+    });
+
+
+    const toggleKmlLinesControl = new ol.control.Control({
+        element: (() => {
+            const button = document.createElement('button');
+            button.innerHTML = '🗺️';
+            button.title = 'Переключить синие линии KML';
+            button.style.backgroundColor = 'transparent';
+            button.style.border = 'none';
+            button.style.borderRadius = '4px';
+            button.style.padding = '4px';
+            button.style.cursor = 'pointer';
+            button.style.fontSize = '16px';
+            button.style.width = '24px';
+            button.style.height = '24px';
+            button.addEventListener('click', () => {
+                const visible = kmlLineLayer.getVisible();
+                kmlLineLayer.setVisible(!visible);
+                button.style.backgroundColor = visible ? 'transparent' : '#00d3f8';
+            });
+            const element = document.createElement('div');
+            element.className = 'ol-unselectable ol-control';
+            element.style.position = 'absolute';
+            element.style.top = '10px';
+            element.style.right = '10px';
+            element.appendChild(button);
+            return element;
+        })()
+    });
+    map.addControl(toggleKmlLinesControl);
+
+
+
+
+
 
     function loadBuildings(extent) {
         buildingSource.clear();
@@ -200,26 +267,39 @@ document.addEventListener('DOMContentLoaded', function () {
                     updatePointNumbers();
                 }
             } else {
-                alert('Выберите активную точку для обновления координат.');
+                
             }
         }
     });
 
+    // Собственный dblclick обработчик
     map.on('dblclick', function (evt) {
-        evt.preventDefault();
         const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
             return feature;
         });
+
         if (feature && feature.getGeometry().getType() === 'Point') {
+            // Удаляем точку — НЕ приближаем
             const pointId = feature.get('pointId');
             const row = document.querySelector(`.point-row[data-point-id="${pointId}"]`);
-            pushState();
-            row.remove();
-            vectorSource.removeFeature(feature);
-            updateMap();
-            saveDataToLocalStorage();
-            ensureEmptyRowAtEnd();
-            updatePointNumbers();
+            if (row) {
+                pushState();
+                row.remove();
+                vectorSource.removeFeature(feature);
+                updateMap();
+                saveDataToLocalStorage();
+                ensureEmptyRowAtEnd();
+                updatePointNumbers();
+            }
+        } else {
+            // Приближаем вручную (как делает DoubleClickZoom)
+            const view = map.getView();
+            const zoom = view.getZoom();
+            view.animate({
+                zoom: zoom + 1,
+                center: evt.coordinate,
+                duration: 250
+            });
         }
     });
 
@@ -309,6 +389,7 @@ document.addEventListener('DOMContentLoaded', function () {
         pointsContainer.appendChild(newPointRow);
         updatePointNumbers();
 
+        // Drag-and-drop event listeners
         newPointRow.addEventListener('dragstart', handleDragStart);
         newPointRow.addEventListener('dragover', handleDragOver);
         newPointRow.addEventListener('dragend', handleDragEnd);
@@ -358,83 +439,57 @@ document.addEventListener('DOMContentLoaded', function () {
         return newPointRow;
     }
 
+    // Drag-and-drop handlers
     let draggedRow = null;
     let dragStartY = 0;
     let initialTop = 0;
 
-    function handleDragStart(e) {
-        draggedRow = e.target.closest('.point-row');
-        draggedRow.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', draggedRow.dataset.pointId);
+function handleDragStart(e) {
+    draggedRow = e.target.closest('.point-row');
+    draggedRow.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedRow.dataset.pointId);
 
-        const emptyImage = new Image();
-        emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-        e.dataTransfer.setDragImage(emptyImage, 0, 0);
+    // Отключение стандартного drag image
+    const emptyImage = new Image();
+    emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(emptyImage, 0, 0);
 
-        const rect = draggedRow.getBoundingClientRect();
-        dragStartY = e.clientY;
-        initialTop = rect.top;
+    const rect = draggedRow.getBoundingClientRect();
+    dragStartY = e.clientY;
+    initialTop = rect.top;
 
-        draggedRow.style.position = 'absolute';
-        draggedRow.style.width = `${rect.width}px`;
-        draggedRow.style.top = `${rect.top + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
-        draggedRow.style.zIndex = '1000';
+    // Установка фиксированных размеров
+    draggedRow.style.position = 'absolute';
+    draggedRow.style.width = `${rect.width}px`;
+    draggedRow.style.height = `${rect.height}px`; // добавлено
+    draggedRow.style.top = `${rect.top + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
+    draggedRow.style.zIndex = '1000';
+    draggedRow.style.boxSizing = 'border-box'; // на всякий случай
 
-        const placeholder = document.createElement('div');
-        placeholder.classList.add('point-row-placeholder');
-        placeholder.style.height = `${rect.height}px`;
-        placeholder.dataset.pointId = draggedRow.dataset.pointId;
-        draggedRow.parentNode.insertBefore(placeholder, draggedRow.nextSibling);
+    // Создаем плейсхолдер
+    const placeholder = document.createElement('div');
+    placeholder.classList.add('point-row-placeholder');
+    placeholder.style.height = `${rect.height}px`;
+    placeholder.dataset.pointId = draggedRow.dataset.pointId;
+    draggedRow.parentNode.insertBefore(placeholder, draggedRow.nextSibling);
 
-        pointsContainer.addEventListener('wheel', handleWheelDuringDrag);
+    // Добавляем обработчик события wheel для прокрутки
+    pointsContainer.addEventListener('wheel', handleWheelDuringDrag);
 
-        updatePointNumbers();
-    }
+    updatePointNumbers();
+}
 
-    function handleDrag(e) {
-        if (!draggedRow) return;
 
-        const containerRect = pointsContainer.getBoundingClientRect();
-        const deltaY = e.clientY - dragStartY;
-        draggedRow.style.top = `${initialTop + deltaY + pointsContainer.scrollTop - containerRect.top}px`;
 
-        const rows = Array.from(pointsContainer.querySelectorAll('.point-row:not(.dragging), .point-row-placeholder'));
-        let closestRow = null;
-        let minDistance = Infinity;
-        let insertBefore = true;
-
-        rows.forEach(row => {
-            const rect = row.getBoundingClientRect();
-            const rowCenter = rect.top + rect.height / 2;
-            const dragCenter = e.clientY;
-            const distance = Math.abs(dragCenter - rowCenter);
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestRow = row;
-                insertBefore = dragCenter < rowCenter;
-            }
-        });
-
-        const placeholder = pointsContainer.querySelector('.point-row-placeholder');
-        if (closestRow && placeholder) {
-            if (insertBefore) {
-                closestRow.parentNode.insertBefore(placeholder, closestRow);
-            } else {
-                closestRow.parentNode.insertBefore(placeholder, closestRow.nextSibling);
-            }
-        }
-
-        updatePointNumbers();
-    }
 
     function handleWheelDuringDrag(e) {
         e.preventDefault();
         const container = pointsContainer;
-        const scrollSpeed = 20;
+        const scrollSpeed = 20; // Скорость прокрутки
         container.scrollTop += e.deltaY > 0 ? scrollSpeed : -scrollSpeed;
 
+        // Обновляем позицию перетаскиваемого элемента
         if (draggedRow) {
             const containerRect = container.getBoundingClientRect();
             draggedRow.style.top = `${parseFloat(draggedRow.style.top) + (e.deltaY > 0 ? scrollSpeed : -scrollSpeed)}px`;
@@ -497,6 +552,7 @@ document.addEventListener('DOMContentLoaded', function () {
             updateMap();
             saveDataToLocalStorage();
 
+            // Удаляем обработчик события wheel
             pointsContainer.removeEventListener('wheel', handleWheelDuringDrag);
         }
     }
@@ -523,52 +579,36 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-function removeTrailingEmptyRows() {
-    const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
-    while (rows.length > 0) {
-        const lastRow = rows[rows.length - 1];
-        const nameInput = lastRow.querySelector('.pointName');
-        const coordsInput = lastRow.querySelector('.pointCoords');
-        if (!nameInput || !coordsInput) {
-            // Invalid row, remove it
-            lastRow.remove();
-            rows.pop();
-            continue;
-        }
-        const name = nameInput.value.trim();
-        const coords = coordsInput.value.trim();
-        if (name === '' && coords === '') {
-            lastRow.remove();
-            rows.pop();
-        } else {
-            break;
+    function removeTrailingEmptyRows() {
+        const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
+        while (rows.length > 0) {
+            const lastRow = rows[rows.length - 1];
+            const name = lastRow.querySelector('.pointName').value.trim();
+            const coords = lastRow.querySelector('.pointCoords').value.trim();
+            if (name === '' && coords === '') {
+                lastRow.remove();
+                rows.pop();
+            } else {
+                break;
+            }
         }
     }
-}
 
-function ensureEmptyRowAtEnd() {
-    const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
-    if (rows.length === 0) {
-        const newRow = addPointRow('', '');
-        updatePointNumbers();
-        return;
+    function ensureEmptyRowAtEnd() {
+        const rows = Array.from(pointsContainer.querySelectorAll('.point-row'));
+        if (rows.length === 0) {
+            const newRow = addPointRow('', '');
+            updatePointNumbers();
+            return;
+        }
+        const lastRow = rows[rows.length - 1];
+        const name = lastRow.querySelector('.pointName').value.trim();
+        const coords = lastRow.querySelector('.pointCoords').value.trim();
+        if (name !== '' || coords !== '') {
+            const newRow = addPointRow('', '');
+            updatePointNumbers();
+        }
     }
-    const lastRow = rows[rows.length - 1];
-    const nameInput = lastRow.querySelector('.pointName');
-    const coordsInput = lastRow.querySelector('.pointCoords');
-    if (!nameInput || !coordsInput) {
-        // Invalid row, remove it and recheck
-        lastRow.remove();
-        ensureEmptyRowAtEnd();
-        return;
-    }
-    const name = nameInput.value.trim();
-    const coords = coordsInput.value.trim();
-    if (name !== '' || coords !== '') {
-        const newRow = addPointRow('', '');
-        updatePointNumbers();
-    }
-}
 
     function updatePointNumbers() {
         const rows = pointsContainer.querySelectorAll('.point-row');
@@ -710,6 +750,7 @@ function ensureEmptyRowAtEnd() {
         pointsContainer.innerHTML = '';
         addPointRow('', '');
         pointIdCounter = 0;
+        kmlLineSource.clear();
         updateMap();
         saveDataToLocalStorage();
         updatePointNumbers();
@@ -718,18 +759,102 @@ function ensureEmptyRowAtEnd() {
         }
     });
 
+    document.getElementById('sortPointsButton').addEventListener('click', function () {
+        const pointRows = document.querySelectorAll('.point-row');
+        const points = Array.from(pointRows).map(row => {
+            const name = row.querySelector('.pointName').value.trim();
+            const coords = row.querySelector('.pointCoords').value.trim();
+            if (!name || !coords) return null;
+            const [latitude, longitude] = coords.split('/').map(parseFloat);
+            if (isNaN(latitude) || isNaN(longitude)) return null;
+            return { name, lat: latitude, lon: longitude };
+        }).filter(p => p !== null);
+
+        if (points.length === 0) {
+            alert('Нет точек для сортировки.');
+            return;
+        }
+
+        // 🔥 Сохраняем состояние KML-линий
+        window.preserveKmlLinesDuringSort = kmlWithLinesMode;
+
+        // Сохраняем точки
+        window.tempPointsForSorting = points;
+        window.tempMapNameForSorting = document.getElementById('mapName').value || 'Imported Map';
+
+        opener.showStartPointModal(window.tempMapNameForSorting, points);
+    });
+
+
+    function selectStartPoint(item) {
+        const startName = item.textContent;
+
+        // Закрываем модалку
+        startPointModal.classList.remove('show');
+        document.getElementById('startPointModalBackdrop').classList.remove('show');
+        setTimeout(() => {
+            startPointModal.style.display = 'none';
+            document.getElementById('startPointModalBackdrop').style.display = 'none';
+            startPointList.innerHTML = '';
+            startPointList.dataset.selectedIndex = -1;
+        }, 300);
+
+        let pointsToSort = [];
+        let mapNameToUse = '';
+
+        if (window.tempPointsForSorting) {
+            // Случай: сортировка после загрузки KML с линиями
+            pointsToSort = window.tempPointsForSorting;
+            mapNameToUse = window.tempMapNameForSorting;
+            delete window.tempPointsForSorting;
+            delete window.tempMapNameForSorting;
+        } else if (opener.points && opener.points.length > 0) {
+            // Случай: стандартная загрузка без линий
+            pointsToSort = opener.points;
+            mapNameToUse = opener.mapName;
+            opener.points = [];
+            opener.lineCoords = [];
+            opener.mapName = '';
+        } else {
+            alert('Нет данных для сортировки.');
+            return;
+        }
+
+        const sortedPoints = opener.sortPoints(startName, pointsToSort, null);
+
+        // 🔥 Восстанавливаем флаг KML-линий
+        const preserveKmlLines = !!window.preserveKmlLinesDuringSort;
+        delete window.preserveKmlLinesDuringSort;
+
+        loadPointsIntoUI(sortedPoints, mapNameToUse);
+
+        // После сортировки: красная линия появляется (kmlWithLinesMode = false), синяя остается видимой
+        kmlWithLinesMode = false;
+        kmlLineLayer.setVisible(preserveKmlLines);
+
+        updateMap();
+    }
     function saveMapToHistory(mapName, points, kmlContent) {
-        let mapHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        mapHistory.unshift({
+        const pointsForHistory = points.map(p => ({
+            name: p.name,
+            lat: p.latitude,
+            lon: p.longitude
+        }));
+
+        const entry = {
             id: Date.now(),
             name: mapName,
-            timestamp: new Date().toLocaleString('ru-RU'),
-            points: points,
-            kml: kmlContent
-        });
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(mapHistory));
-    }
+            points: pointsForHistory,
+            timestamp: new Date().toLocaleString('ru-RU')
+        };
 
+        let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        history.unshift(entry); // Добавляем в начало для сортировки по новизне
+        if (history.length > 50) {
+            history = history.slice(0, 50); // Ограничиваем 50 записями
+        }
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    }
     document.getElementById('generateKMLButton').addEventListener('click', function () {
         const mapName = document.getElementById('mapName').value;
 
@@ -753,6 +878,7 @@ function ensureEmptyRowAtEnd() {
             return;
         }
 
+        // Helper function to escape XML special characters
         function escapeXml(unsafe) {
             return unsafe.replace(/[<>&'"]/g, function (c) {
                 switch (c) {
@@ -812,15 +938,17 @@ function ensureEmptyRowAtEnd() {
     </Document>
 </kml>`;
 
+        // Save to history
         saveMapToHistory(mapName, points, kmlContent);
 
         const kmlData = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
         const kmlURL = URL.createObjectURL(kmlData);
 
+        // Sanitize filename to allow Russian letters and hyphens, but remove other special characters
         const sanitizedFileName = mapName
-            .replace(/[^\p{L}\p{N}\- ]/gu, '')
+            .replace(/[^\p{L}\p{N}\- ]/gu, '') // Allow Unicode letters, numbers, hyphens, and spaces
             .trim()
-            .replace(/\s+/g, '_');
+            .replace(/\s+/g, '_'); // Replace spaces with underscores
 
         const link = document.createElement('a');
         link.href = kmlURL;
@@ -829,7 +957,156 @@ function ensureEmptyRowAtEnd() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(kmlURL);
+        fetch('/api/history/upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: mapName,
+                kml: kmlContent
+            })
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    console.log('Saved to shared history:', result.filename);
+                } else {
+                    console.error('Failed to save to shared history:', result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving to shared history:', error);
+            });
+
+
     });
+
+
+    function handleKmlWithoutLines(kmlText) {
+        window.kmlLineSource.clear();
+        const parsed = opener.parseKML(kmlText);
+        if (parsed === null) {
+            loadPointsIntoUI(opener.points, opener.mapName);
+            opener.points = [];
+            opener.lineCoords = [];
+            opener.mapName = '';
+            return;
+        }
+        if (!parsed || !parsed.points || parsed.points.length === 0) {
+            alert('В KML файле не найдены точки.');
+            return;
+        }
+        opener.points = parsed.points;
+        opener.lineCoords = parsed.lineCoords;
+        opener.mapName = parsed.mapName;
+        kmlWithLinesMode = false;
+        kmlLineLayer.setVisible(false);
+        loadPointsIntoUI(opener.points, opener.mapName);
+    }
+
+    function handleKmlWithLines(kmlText) {
+    const parsed = opener.parseKML(kmlText);
+    if (parsed === null) return;
+    loadPointsIntoUI(parsed.points, parsed.mapName);
+    opener.loadKmlLinesIntoMap(parsed.lineCoordsList);
+    document.getElementById('sortPointsButton').style.display = 'inline-block';
+    kmlWithLinesMode = true;
+    kmlLineLayer.setVisible(true);
+    lineSource.clear(); // Очищаем красную линию
+}
+
+function updateMap() {
+    vectorSource.clear();
+    lineSource.clear();
+
+    const pointRows = document.querySelectorAll('.point-row');
+    const coordinates = [];
+    let cumulativeDistance = 0;
+    let previousCoords = null;
+
+    pointRows.forEach((row, index) => {
+        const coords = row.querySelector('.pointCoords').value;
+        const name = row.querySelector('.pointName').value;
+        const pointId = row.dataset.pointId;
+
+        if (coords) {
+            const [latitude, longitude] = coords.split('/').map(parseFloat);
+            if (!isNaN(latitude) && !isNaN(longitude)) {
+                const currentCoords = [longitude, latitude];
+                let distanceText = '';
+                if (previousCoords) {
+                    const from = turf.point(previousCoords);
+                    const to = turf.point([longitude, latitude]);
+                    const options = { units: 'meters' };
+                    const distance = turf.distance(from, to, options);
+                    cumulativeDistance += distance;
+                    distanceText = ` - ${Math.round(cumulativeDistance)} м`;
+                }
+
+                // Добавляем порядковый номер к имени точки
+                const displayName = name ? `${index + 1}. ${name}` : `${index + 1}.`;
+
+                const feature = new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+                    name: displayName + distanceText,
+                    pointId: pointId,
+                    active: row.classList.contains('active')
+                });
+
+                vectorSource.addFeature(feature);
+                coordinates.push(ol.proj.fromLonLat([longitude, latitude]));
+
+                previousCoords = [longitude, latitude];
+            }
+        }
+    });
+
+    // Рисуем красную линию только если kmlWithLinesMode === false
+    if (!kmlWithLinesMode && coordinates.length > 1) {
+        const line = new ol.Feature({
+            geometry: new ol.geom.LineString(coordinates)
+        });
+        lineSource.addFeature(line);
+    }
+
+    document.getElementById('totalDistance').textContent = `Общая длина: ${Math.round(cumulativeDistance)} м`;
+    updatePointNumbers();
+}
+    document.getElementById('loadWithLinesBtn').addEventListener('click', function () {
+        closeLineChoiceModal();
+        if (window.pendingKmlData) {
+            handleKmlWithLines(window.pendingKmlData.kmlText);
+            window.pendingKmlData = null;
+        }
+    });
+
+    document.getElementById('loadWithoutLinesBtn').addEventListener('click', function () {
+        closeLineChoiceModal();
+        if (window.pendingKmlData) {
+            handleKmlWithoutLines(window.pendingKmlData.kmlText);
+            window.pendingKmlData = null;
+        }
+    });
+
+    document.getElementById('lineChoiceClose').addEventListener('click', function () {
+        closeLineChoiceModal();
+        window.pendingKmlData = null;
+    });
+
+    function closeLineChoiceModal() {
+        const modal = document.getElementById('lineChoiceModal');
+        const backdrop = document.getElementById('lineChoiceModalBackdrop');
+        modal.classList.remove('show');
+        backdrop.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            backdrop.style.display = 'none';
+        }, 300);
+    }
+
+
+
 
     function updateMap() {
         vectorSource.clear();
@@ -859,9 +1136,12 @@ function ensureEmptyRowAtEnd() {
                         distanceText = ` - ${Math.round(cumulativeDistance)} м`;
                     }
 
+                    // Добавляем порядковый номер к имени точки
+                    const displayName = name ? `${index + 1}. ${name}` : `${index + 1}.`;
+
                     const feature = new ol.Feature({
                         geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
-                        name: name + distanceText,
+                        name: displayName + distanceText,
                         pointId: pointId,
                         active: row.classList.contains('active')
                     });
@@ -874,7 +1154,8 @@ function ensureEmptyRowAtEnd() {
             }
         });
 
-        if (coordinates.length > 1) {
+        lineSource.clear();
+        if (!kmlWithLinesMode && coordinates.length > 1) {
             const line = new ol.Feature({
                 geometry: new ol.geom.LineString(coordinates)
             });
@@ -946,6 +1227,112 @@ function ensureEmptyRowAtEnd() {
                 const prevState = history.pop();
                 restoreState(prevState);
             }
+            return;
+        }
+
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        const activeRow = document.querySelector('.point-row.active');
+        if (!activeRow) return;
+
+        const digitMatch = e.key.match(/^([0-9])$/);
+if (digitMatch) {
+    e.preventDefault();
+    const digit = digitMatch[1];
+    digitInputBuffer += digit;
+
+    if (digitInputTimeout) clearTimeout(digitInputTimeout);
+    digitInputTimeout = setTimeout(() => {
+        const allRows = Array.from(document.querySelectorAll('.point-row'));
+        const filledRows = allRows.filter(row => {
+            const name = row.querySelector('.pointName').value.trim();
+            const coords = row.querySelector('.pointCoords').value.trim();
+            return name !== '' || coords !== '';
+        });
+        const maxIndex = allRows.length - 1;
+
+        let targetIndex;
+
+        if (digitInputBuffer === '0') {
+            if (window.lastZeroInsertIndex !== null) {
+                // Используем последний введённый номер + 1
+                targetIndex = window.lastZeroInsertIndex + 1;
+            } else {
+                // Если последнего номера нет, выбираем 2 (или 0, если нет заполненных строк)
+                targetIndex = filledRows.length > 0 ? 1 : 0;
+            }
+            window.lastZeroInsertIndex = targetIndex; // Обновляем последний введённый номер
+        } else {
+            const num = parseInt(digitInputBuffer, 10);
+            targetIndex = num - 1; // 1-based to 0-based
+            window.lastZeroInsertIndex = targetIndex; // Сохраняем введённый номер
+        }
+
+        digitInputBuffer = '';
+
+        // Ограничиваем targetIndex до допустимого диапазона
+        targetIndex = Math.max(0, Math.min(targetIndex, maxIndex));
+
+        const currentIndex = allRows.indexOf(activeRow);
+        if (currentIndex === targetIndex) return;
+
+        pushState();
+        activeRow.remove();
+
+        // Корректируем targetIndex, если текущая строка была удалена до или на позиции targetIndex
+        if (currentIndex <= targetIndex && targetIndex < maxIndex) {
+            targetIndex++;
+        }
+
+        // Вставляем строку в нужную позицию
+        if (targetIndex < allRows.length) {
+            pointsContainer.insertBefore(activeRow, allRows[targetIndex]);
+        } else {
+            pointsContainer.appendChild(activeRow);
+        }
+
+        updatePointNumbers();
+        updateMap();
+        saveDataToLocalStorage();
+        ensureEmptyRowAtEnd();
+        setActiveRow(activeRow, true);
+    }, 300);
+    return;
+}
+
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const allRows = Array.from(document.querySelectorAll('.point-row'));
+            const currentIndex = allRows.indexOf(activeRow);
+            const maxIndex = allRows.length - 2;
+            if (currentIndex < 0 || currentIndex > maxIndex) return;
+
+            let newIndex;
+            if (e.key === 'ArrowUp') {
+                newIndex = currentIndex - 1;
+                if (newIndex < 0) return;
+            } else {
+                newIndex = currentIndex + 1;
+                if (newIndex > maxIndex) return;
+            }
+
+            pushState();
+            const targetRow = allRows[newIndex];
+            activeRow.remove();
+
+            if (e.key === 'ArrowUp') {
+                targetRow.before(activeRow);
+            } else {
+                targetRow.after(activeRow);
+            }
+
+            updatePointNumbers();
+            updateMap();
+            saveDataToLocalStorage();
+            ensureEmptyRowAtEnd();
+            setActiveRow(activeRow, true);
         }
     });
 
@@ -988,6 +1375,7 @@ function ensureEmptyRowAtEnd() {
         }
     }
 
+
     function loadPointsIntoUI(pointsToLoad, mapName) {
         pointsContainer.innerHTML = '';
         pointIdCounter = 0;
@@ -1008,6 +1396,7 @@ function ensureEmptyRowAtEnd() {
         saveDataToLocalStorage();
         ensureEmptyRowAtEnd();
         updatePointNumbers();
+        // Удалено: document.getElementById('sortPointsButton').style.display = 'none';
     }
 
     loadDataFromLocalStorage();
@@ -1031,57 +1420,54 @@ function ensureEmptyRowAtEnd() {
     dropZone.addEventListener('drop', function (e) {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-
         const file = e.dataTransfer.files[0];
         if (!file || !file.name.toLowerCase().endsWith('.kml')) {
             alert('Пожалуйста, загрузите файл в формате KML.');
-            console.log('Invalid file type for KML drop');
             return;
         }
-
         const reader = new FileReader();
         reader.onload = function (event) {
             try {
                 const kmlText = event.target.result;
-                console.log('KML file read, parsing...');
-                const parsed = opener.parseKML(kmlText);
-                if (parsed === null) {
-                    console.log('Start Point Modal bypassed; points loaded directly');
-                    loadPointsIntoUI(opener.points, opener.mapName);
-                    opener.points = [];
-                    opener.lineCoords = [];
-                    opener.mapName = '';
-                    return;
+                const parser = new DOMParser();
+                const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
+                const hasLineString = kmlDoc.querySelector('LineString') !== null;
+
+                if (hasLineString) {
+                    // Показываем модальное окно выбора
+                    const lineChoiceModal = document.getElementById('lineChoiceModal');
+                    const backdrop = document.getElementById('lineChoiceModalBackdrop');
+                    backdrop.style.display = 'block';
+                    lineChoiceModal.style.display = 'block';
+                    setTimeout(() => {
+                        backdrop.classList.add('show');
+                        lineChoiceModal.classList.add('show');
+                    }, 0);
+
+                    // Сохраняем данные для последующей обработки
+                    window.pendingKmlData = { kmlText, kmlDoc };
+                } else {
+                    // Нет линий — обычный парсинг
+                    handleKmlWithoutLines(kmlText);
                 }
-                if (!parsed || !parsed.points || parsed.points.length === 0) {
-                    alert('В KML файле не найдены точки.');
-                    console.log('No points found in KML');
-                    return;
-                }
-                opener.points = parsed.points;
-                opener.lineCoords = parsed.lineCoords;
-                opener.mapName = parsed.mapName;
-                console.log('Triggering Start Point Modal with points:', parsed.points);
-                opener.showStartPointModal(parsed.mapName || 'Imported Map', parsed.points);
             } catch (error) {
                 console.error('Ошибка при разборе KML:', error);
                 alert('Ошибка при обработке KML файла: ' + error.message);
             }
         };
-        reader.onerror = function () {
-            alert('Ошибка при чтении KML файла.');
-            console.log('Error reading KML file');
-        };
+        reader.onerror = () => alert('Ошибка при чтении KML файла.');
         reader.readAsText(file);
     });
 
     const loadWellsButton = document.getElementById('loadWellsButton');
     const wellsModal = document.getElementById('wellsModal');
     const wellsDropZone = document.getElementById('wellsDropZone');
+    const toggleWellsModeButton = document.getElementById('toggleWellsModeButton');
     const loadingAnimation = document.getElementById('loadingAnimation');
     const wellsModalClose = document.getElementById('wellsModalClose');
     const progressText = document.getElementById('progressText');
     const progressFill = document.getElementById('progressFill');
+
 
     loadWellsButton.addEventListener('click', function () {
         wellsModal.style.display = 'block';
@@ -1089,10 +1475,11 @@ function ensureEmptyRowAtEnd() {
         setTimeout(() => {
             wellsModal.classList.add('show');
             document.getElementById('wellsModalBackdrop').classList.add('show');
-            wellsDropZone.style.display = 'block';
-            loadingAnimation.style.display = 'none';
-            console.log('Wells Modal opened');
         }, 0);
+        // Скрываем drop-zone и показываем список файлов
+        // Устанавливаем значок кнопки на "↑"
+        loadingAnimation.style.display = 'none';
+        console.log('Модальное окно загрузки колодцев открыто');
     });
 
     wellsModalClose.addEventListener('click', function (event) {
@@ -1120,7 +1507,8 @@ function ensureEmptyRowAtEnd() {
         wellsDropZone.classList.remove('dragover');
     });
 
-    wellsDropZone.addEventListener('drop', function (e) {
+    // --- НАЧАЛО ЗАМЕНЫ: Обработчик drop для wellsDropZone ---
+     wellsDropZone.addEventListener('drop', function (e) {
         e.preventDefault();
         wellsDropZone.classList.remove('dragover');
         wellsDropZone.style.display = 'none';
@@ -1211,6 +1599,7 @@ function ensureEmptyRowAtEnd() {
             console.log('Invalid file type for wellsDropZone');
         }
     });
+    // --- КОНЕЦ ЗАМЕНЫ ---
 
     const quickAddModal = document.getElementById('quickAddModal');
     const quickAddSearch = document.getElementById('quickAddSearch');
@@ -1424,7 +1813,6 @@ function ensureEmptyRowAtEnd() {
             content.style.left = '0';
             content.style.top = '0';
             content.style.transform = `translate(${currentX}px, ${currentY}px)`;
-            content.style.transition = ''; // Remove transition to disable smooth animation
         }
 
         function boundPosition() {
@@ -1450,8 +1838,7 @@ function ensureEmptyRowAtEnd() {
             currentX = e.clientX - offsetX;
             currentY = e.clientY - offsetY;
             boundPosition();
-            content.style.transform = `translate(${currentX}px, ${currentY}px)`; // Update position instantly
-            content.style.transition = ''; // Ensure no transition during dragging
+            content.style.transform = `translate(${currentX}px, ${currentY}px)`;
         });
 
         document.addEventListener('mouseup', () => {
@@ -1459,14 +1846,12 @@ function ensureEmptyRowAtEnd() {
                 isDragging = false;
                 boundPosition();
                 localStorage.setItem(positionKey, JSON.stringify({ x: currentX, y: currentY }));
-                content.style.transition = ''; // Reset transition after dragging
             }
         });
 
         window.addEventListener('resize', () => {
             boundPosition();
             content.style.transform = `translate(${currentX}px, ${currentY}px)`;
-            content.style.transition = ''; // No transition on resize
             localStorage.setItem(positionKey, JSON.stringify({ x: currentX, y: currentY }));
         });
     }
@@ -1489,7 +1874,7 @@ function ensureEmptyRowAtEnd() {
             opener.lineCoords = [];
             opener.mapName = '';
             console.log('Start Point Modal closed');
-        }, 100);
+        }, 300);
     });
 
     startPointList.addEventListener('click', function (e) {
@@ -1528,6 +1913,8 @@ function ensureEmptyRowAtEnd() {
 
     function selectStartPoint(item) {
         const startName = item.textContent;
+
+        // Закрываем модалку
         startPointModal.classList.remove('show');
         document.getElementById('startPointModalBackdrop').classList.remove('show');
         setTimeout(() => {
@@ -1535,20 +1922,40 @@ function ensureEmptyRowAtEnd() {
             document.getElementById('startPointModalBackdrop').style.display = 'none';
             startPointList.innerHTML = '';
             startPointList.dataset.selectedIndex = -1;
-            console.log('Start Point Modal closed after selection');
-            if (!opener.points || !Array.isArray(opener.points)) {
-                alert('Ошибка: точки не загружены.');
-                return;
-            }
-            const sortedPoints = opener.sortPoints(startName, opener.points, opener.lineCoords || []);
-            loadPointsIntoUI(sortedPoints, opener.mapName);
+        }, 300);
+
+        // Определяем источник точек
+        let pointsToSort = [];
+        let mapNameToUse = '';
+
+        if (window.tempPointsForSorting) {
+            // Случай: сортировка после загрузки KML с линиями
+            pointsToSort = window.tempPointsForSorting;
+            mapNameToUse = window.tempMapNameForSorting;
+            delete window.tempPointsForSorting;
+            delete window.tempMapNameForSorting;
+        } else if (opener.points && opener.points.length > 0) {
+            // Случай: стандартная загрузка без линий
+            pointsToSort = opener.points;
+            mapNameToUse = opener.mapName;
             opener.points = [];
             opener.lineCoords = [];
             opener.mapName = '';
-        }, 300);
+        } else {
+            alert('Нет данных для сортировки.');
+            return;
+        }
+
+        // Сортируем
+        const sortedPoints = opener.sortPoints(startName, pointsToSort, null);
+        loadPointsIntoUI(sortedPoints, mapNameToUse);
+
+        // Включаем режим сортировки → теперь можно рисовать красную линию
+        kmlWithLinesMode = false;
+        updateMap(); // перерисовать без линии KML, но с возможностью красной
     }
 
-    const historyButton = document.getElementById('historyButton');
+      const historyButton = document.getElementById('historyButton');
     const historyModal = document.getElementById('historyModal');
     const historyList = document.getElementById('historyList');
     const historyModalClose = document.getElementById('historyModalClose');
