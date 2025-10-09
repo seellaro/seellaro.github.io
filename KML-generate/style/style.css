@@ -298,6 +298,7 @@ body.dark-theme .btn button {
 }
 
 input#mapName {
+    width: 100%;
     background-color: #ffffff18;
     transition: background-color 0.5s ease-out;
 }
@@ -987,3 +988,4 @@ body.dark-theme .ol-control button {
     background-color: #0000003d;
     border-color: #666;
 }
+
