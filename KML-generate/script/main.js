@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     updatePointNumbers();
                 }
             } else {
-                
+
             }
         }
     });
@@ -444,41 +444,41 @@ document.addEventListener('DOMContentLoaded', function () {
     let dragStartY = 0;
     let initialTop = 0;
 
-function handleDragStart(e) {
-    draggedRow = e.target.closest('.point-row');
-    draggedRow.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedRow.dataset.pointId);
+    function handleDragStart(e) {
+        draggedRow = e.target.closest('.point-row');
+        draggedRow.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedRow.dataset.pointId);
 
-    // Отключение стандартного drag image
-    const emptyImage = new Image();
-    emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    e.dataTransfer.setDragImage(emptyImage, 0, 0);
+        // Отключение стандартного drag image
+        const emptyImage = new Image();
+        emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        e.dataTransfer.setDragImage(emptyImage, 0, 0);
 
-    const rect = draggedRow.getBoundingClientRect();
-    dragStartY = e.clientY;
-    initialTop = rect.top;
+        const rect = draggedRow.getBoundingClientRect();
+        dragStartY = e.clientY;
+        initialTop = rect.top;
 
-    // Установка фиксированных размеров
-    draggedRow.style.position = 'absolute';
-    draggedRow.style.width = `${rect.width}px`;
-    draggedRow.style.height = `${rect.height}px`; // добавлено
-    draggedRow.style.top = `${rect.top + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
-    draggedRow.style.zIndex = '1000';
-    draggedRow.style.boxSizing = 'border-box'; // на всякий случай
+        // Установка фиксированных размеров
+        draggedRow.style.position = 'absolute';
+        draggedRow.style.width = `${rect.width}px`;
+        draggedRow.style.height = `${rect.height}px`; // добавлено
+        draggedRow.style.top = `${rect.top + pointsContainer.scrollTop - pointsContainer.getBoundingClientRect().top}px`;
+        draggedRow.style.zIndex = '1000';
+        draggedRow.style.boxSizing = 'border-box'; // на всякий случай
 
-    // Создаем плейсхолдер
-    const placeholder = document.createElement('div');
-    placeholder.classList.add('point-row-placeholder');
-    placeholder.style.height = `${rect.height}px`;
-    placeholder.dataset.pointId = draggedRow.dataset.pointId;
-    draggedRow.parentNode.insertBefore(placeholder, draggedRow.nextSibling);
+        // Создаем плейсхолдер
+        const placeholder = document.createElement('div');
+        placeholder.classList.add('point-row-placeholder');
+        placeholder.style.height = `${rect.height}px`;
+        placeholder.dataset.pointId = draggedRow.dataset.pointId;
+        draggedRow.parentNode.insertBefore(placeholder, draggedRow.nextSibling);
 
-    // Добавляем обработчик события wheel для прокрутки
-    pointsContainer.addEventListener('wheel', handleWheelDuringDrag);
+        // Добавляем обработчик события wheel для прокрутки
+        pointsContainer.addEventListener('wheel', handleWheelDuringDrag);
 
-    updatePointNumbers();
-}
+        updatePointNumbers();
+    }
 
 
 
@@ -1006,73 +1006,73 @@ function handleDragStart(e) {
     }
 
     function handleKmlWithLines(kmlText) {
-    const parsed = opener.parseKML(kmlText);
-    if (parsed === null) return;
-    loadPointsIntoUI(parsed.points, parsed.mapName);
-    opener.loadKmlLinesIntoMap(parsed.lineCoordsList);
-    document.getElementById('sortPointsButton').style.display = 'inline-block';
-    kmlWithLinesMode = true;
-    kmlLineLayer.setVisible(true);
-    lineSource.clear(); // Очищаем красную линию
-}
-
-function updateMap() {
-    vectorSource.clear();
-    lineSource.clear();
-
-    const pointRows = document.querySelectorAll('.point-row');
-    const coordinates = [];
-    let cumulativeDistance = 0;
-    let previousCoords = null;
-
-    pointRows.forEach((row, index) => {
-        const coords = row.querySelector('.pointCoords').value;
-        const name = row.querySelector('.pointName').value;
-        const pointId = row.dataset.pointId;
-
-        if (coords) {
-            const [latitude, longitude] = coords.split('/').map(parseFloat);
-            if (!isNaN(latitude) && !isNaN(longitude)) {
-                const currentCoords = [longitude, latitude];
-                let distanceText = '';
-                if (previousCoords) {
-                    const from = turf.point(previousCoords);
-                    const to = turf.point([longitude, latitude]);
-                    const options = { units: 'meters' };
-                    const distance = turf.distance(from, to, options);
-                    cumulativeDistance += distance;
-                    distanceText = ` - ${Math.round(cumulativeDistance)} м`;
-                }
-
-                // Добавляем порядковый номер к имени точки
-                const displayName = name ? `${index + 1}. ${name}` : `${index + 1}.`;
-
-                const feature = new ol.Feature({
-                    geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
-                    name: displayName + distanceText,
-                    pointId: pointId,
-                    active: row.classList.contains('active')
-                });
-
-                vectorSource.addFeature(feature);
-                coordinates.push(ol.proj.fromLonLat([longitude, latitude]));
-
-                previousCoords = [longitude, latitude];
-            }
-        }
-    });
-
-    // Рисуем красную линию только если kmlWithLinesMode === false
-    if (!kmlWithLinesMode && coordinates.length > 1) {
-        const line = new ol.Feature({
-            geometry: new ol.geom.LineString(coordinates)
-        });
-        lineSource.addFeature(line);
+        const parsed = opener.parseKML(kmlText);
+        if (parsed === null) return;
+        loadPointsIntoUI(parsed.points, parsed.mapName);
+        opener.loadKmlLinesIntoMap(parsed.lineCoordsList);
+        document.getElementById('sortPointsButton').style.display = 'inline-block';
+        kmlWithLinesMode = true;
+        kmlLineLayer.setVisible(true);
+        lineSource.clear(); // Очищаем красную линию
     }
 
-    document.getElementById('totalDistance').textContent = `Общая длина: ${Math.round(cumulativeDistance)} м`;
-    updatePointNumbers();
-}
+    function updateMap() {
+        vectorSource.clear();
+        lineSource.clear();
+
+        const pointRows = document.querySelectorAll('.point-row');
+        const coordinates = [];
+        let cumulativeDistance = 0;
+        let previousCoords = null;
+
+        pointRows.forEach((row, index) => {
+            const coords = row.querySelector('.pointCoords').value;
+            const name = row.querySelector('.pointName').value;
+            const pointId = row.dataset.pointId;
+
+            if (coords) {
+                const [latitude, longitude] = coords.split('/').map(parseFloat);
+                if (!isNaN(latitude) && !isNaN(longitude)) {
+                    const currentCoords = [longitude, latitude];
+                    let distanceText = '';
+                    if (previousCoords) {
+                        const from = turf.point(previousCoords);
+                        const to = turf.point([longitude, latitude]);
+                        const options = { units: 'meters' };
+                        const distance = turf.distance(from, to, options);
+                        cumulativeDistance += distance;
+                        distanceText = ` - ${Math.round(cumulativeDistance)} м`;
+                    }
+
+                    // Добавляем порядковый номер к имени точки
+                    const displayName = name ? `${index + 1}. ${name}` : `${index + 1}.`;
+
+                    const feature = new ol.Feature({
+                        geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+                        name: displayName + distanceText,
+                        pointId: pointId,
+                        active: row.classList.contains('active')
+                    });
+
+                    vectorSource.addFeature(feature);
+                    coordinates.push(ol.proj.fromLonLat([longitude, latitude]));
+
+                    previousCoords = [longitude, latitude];
+                }
+            }
+        });
+
+        // Рисуем красную линию только если kmlWithLinesMode === false
+        if (!kmlWithLinesMode && coordinates.length > 1) {
+            const line = new ol.Feature({
+                geometry: new ol.geom.LineString(coordinates)
+            });
+            lineSource.addFeature(line);
+        }
+
+        document.getElementById('totalDistance').textContent = `Общая длина: ${Math.round(cumulativeDistance)} м`;
+        updatePointNumbers();
+    }
     document.getElementById('loadWithLinesBtn').addEventListener('click', function () {
         closeLineChoiceModal();
         if (window.pendingKmlData) {
@@ -1238,69 +1238,69 @@ function updateMap() {
         if (!activeRow) return;
 
         const digitMatch = e.key.match(/^([0-9])$/);
-if (digitMatch) {
-    e.preventDefault();
-    const digit = digitMatch[1];
-    digitInputBuffer += digit;
+        if (digitMatch) {
+            e.preventDefault();
+            const digit = digitMatch[1];
+            digitInputBuffer += digit;
 
-    if (digitInputTimeout) clearTimeout(digitInputTimeout);
-    digitInputTimeout = setTimeout(() => {
-        const allRows = Array.from(document.querySelectorAll('.point-row'));
-        const filledRows = allRows.filter(row => {
-            const name = row.querySelector('.pointName').value.trim();
-            const coords = row.querySelector('.pointCoords').value.trim();
-            return name !== '' || coords !== '';
-        });
-        const maxIndex = allRows.length - 1;
+            if (digitInputTimeout) clearTimeout(digitInputTimeout);
+            digitInputTimeout = setTimeout(() => {
+                const allRows = Array.from(document.querySelectorAll('.point-row'));
+                const filledRows = allRows.filter(row => {
+                    const name = row.querySelector('.pointName').value.trim();
+                    const coords = row.querySelector('.pointCoords').value.trim();
+                    return name !== '' || coords !== '';
+                });
+                const maxIndex = allRows.length - 1;
 
-        let targetIndex;
+                let targetIndex;
 
-        if (digitInputBuffer === '0') {
-            if (window.lastZeroInsertIndex !== null) {
-                // Используем последний введённый номер + 1
-                targetIndex = window.lastZeroInsertIndex + 1;
-            } else {
-                // Если последнего номера нет, выбираем 2 (или 0, если нет заполненных строк)
-                targetIndex = filledRows.length > 0 ? 1 : 0;
-            }
-            window.lastZeroInsertIndex = targetIndex; // Обновляем последний введённый номер
-        } else {
-            const num = parseInt(digitInputBuffer, 10);
-            targetIndex = num - 1; // 1-based to 0-based
-            window.lastZeroInsertIndex = targetIndex; // Сохраняем введённый номер
+                if (digitInputBuffer === '0') {
+                    if (window.lastZeroInsertIndex !== null) {
+                        // Используем последний введённый номер + 1
+                        targetIndex = window.lastZeroInsertIndex + 1;
+                    } else {
+                        // Если последнего номера нет, выбираем 2 (или 0, если нет заполненных строк)
+                        targetIndex = filledRows.length > 0 ? 1 : 0;
+                    }
+                    window.lastZeroInsertIndex = targetIndex; // Обновляем последний введённый номер
+                } else {
+                    const num = parseInt(digitInputBuffer, 10);
+                    targetIndex = num - 1; // 1-based to 0-based
+                    window.lastZeroInsertIndex = targetIndex; // Сохраняем введённый номер
+                }
+
+                digitInputBuffer = '';
+
+                // Ограничиваем targetIndex до допустимого диапазона
+                targetIndex = Math.max(0, Math.min(targetIndex, maxIndex));
+
+                const currentIndex = allRows.indexOf(activeRow);
+                if (currentIndex === targetIndex) return;
+
+                pushState();
+                activeRow.remove();
+
+                // Корректируем targetIndex, если текущая строка была удалена до или на позиции targetIndex
+                if (currentIndex <= targetIndex && targetIndex < maxIndex) {
+                    targetIndex++;
+                }
+
+                // Вставляем строку в нужную позицию
+                if (targetIndex < allRows.length) {
+                    pointsContainer.insertBefore(activeRow, allRows[targetIndex]);
+                } else {
+                    pointsContainer.appendChild(activeRow);
+                }
+
+                updatePointNumbers();
+                updateMap();
+                saveDataToLocalStorage();
+                ensureEmptyRowAtEnd();
+                setActiveRow(activeRow, true);
+            }, 300);
+            return;
         }
-
-        digitInputBuffer = '';
-
-        // Ограничиваем targetIndex до допустимого диапазона
-        targetIndex = Math.max(0, Math.min(targetIndex, maxIndex));
-
-        const currentIndex = allRows.indexOf(activeRow);
-        if (currentIndex === targetIndex) return;
-
-        pushState();
-        activeRow.remove();
-
-        // Корректируем targetIndex, если текущая строка была удалена до или на позиции targetIndex
-        if (currentIndex <= targetIndex && targetIndex < maxIndex) {
-            targetIndex++;
-        }
-
-        // Вставляем строку в нужную позицию
-        if (targetIndex < allRows.length) {
-            pointsContainer.insertBefore(activeRow, allRows[targetIndex]);
-        } else {
-            pointsContainer.appendChild(activeRow);
-        }
-
-        updatePointNumbers();
-        updateMap();
-        saveDataToLocalStorage();
-        ensureEmptyRowAtEnd();
-        setActiveRow(activeRow, true);
-    }, 300);
-    return;
-}
 
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
@@ -1508,7 +1508,7 @@ if (digitMatch) {
     });
 
     // --- НАЧАЛО ЗАМЕНЫ: Обработчик drop для wellsDropZone ---
-     wellsDropZone.addEventListener('drop', function (e) {
+    wellsDropZone.addEventListener('drop', function (e) {
         e.preventDefault();
         wellsDropZone.classList.remove('dragover');
         wellsDropZone.style.display = 'none';
@@ -1600,6 +1600,114 @@ if (digitMatch) {
         }
     });
     // --- КОНЕЦ ЗАМЕНЫ ---
+
+
+        // --- НАЧАЛО: Логика модального окна "Дополнительно" ---
+
+        const advancedModal = document.getElementById('advancedModal');
+    const advancedModalBackdrop = document.getElementById('advancedModalBackdrop');
+    const advancedCloseButton = document.getElementById('advancedClose');
+    const advancedOptionsList = document.getElementById('advancedOptionsList');
+    // Находим элемент <h1> внутри <div class="main">
+    const kmlGeneratorTitle = document.querySelector('.main h1'); // Изменённый селектор
+
+    if (!kmlGeneratorTitle) {
+        console.error('Элемент заголовка .main h1 не найден для добавления dblclick обработчика.');
+    } else {
+        // Функция для открытия модального окна
+        function openAdvancedModal() {
+            advancedModal.style.display = 'block';
+            advancedModalBackdrop.style.display = 'block';
+            setTimeout(() => {
+                advancedModal.classList.add('show');
+                advancedModalBackdrop.classList.add('show');
+            }, 0);
+            updateAdvancedOptionsList(); // Заполняем список при открытии
+        }
+
+        // Функция для закрытия модального окна
+        function closeAdvancedModal() {
+            advancedModal.classList.remove('show');
+            advancedModalBackdrop.classList.remove('show');
+            setTimeout(() => {
+                advancedModal.style.display = 'none';
+                advancedModalBackdrop.style.display = 'none';
+                // Очищаем список при закрытии (по желанию)
+                advancedOptionsList.innerHTML = '';
+            }, 300);
+        }
+
+        // Функция для обновления списка опций
+        function updateAdvancedOptionsList() {
+            advancedOptionsList.innerHTML = ''; // Очищаем перед заполнением
+
+            // Пункт 1: Загрузить расширение
+            const loadExtensionItem = document.createElement('div');
+            loadExtensionItem.className = 'well-item';
+            loadExtensionItem.textContent = 'Загрузить расширение';
+            loadExtensionItem.addEventListener('click', () => {
+                window.open('https://onedrive.rt.ru/personal/uf_kozubov_aleksandr/Documents/%D0%94%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%BD%D0%BE%20%D0%B2%D1%81%D0%B5%D0%BC/KML-generate/extensions/argushelper.zip', '_blank'); // Замените URL на нужный
+                closeAdvancedModal(); // Закрываем модальное окно после открытия вкладки
+            });
+            advancedOptionsList.appendChild(loadExtensionItem);
+
+            // Пункт 2: Очистить данные
+            const clearDataItem = document.createElement('div');
+            clearDataItem.className = 'well-item';
+            clearDataItem.textContent = 'Очистить данные';
+            clearDataItem.addEventListener('click', () => {
+                if (confirm('Вы уверены, что хотите очистить все данные (localStorage)? Это действие нельзя отменить.')) {
+                    try {
+                        localStorage.clear();
+                        alert('Данные очищены. Страница будет перезагружена.');
+                        // Жесткая перезагрузка с игнорированием кеша
+                        window.location.reload(true);
+                    } catch (e) {
+                        console.error('Ошибка при очистке localStorage:', e);
+                        alert('Произошла ошибка при очистке данных.');
+                    }
+                }
+                // Закрываем модальное окно в любом случае
+                closeAdvancedModal();
+            });
+            advancedOptionsList.appendChild(clearDataItem);
+
+            // Если нужны другие элементы, добавляйте их здесь
+        }
+
+        // Обработчик двойного клика по элементу заголовка <h1>
+        kmlGeneratorTitle.addEventListener('dblclick', function (event) {
+            event.preventDefault(); // Предотвращаем возможные побочные эффекты двойного клика
+            openAdvancedModal();
+        });
+
+        // Обработчики закрытия модального окна
+        advancedCloseButton.addEventListener('click', closeAdvancedModal);
+        advancedModalBackdrop.addEventListener('click', function (e) {
+            if (e.target === advancedModalBackdrop) {
+                closeAdvancedModal();
+            }
+        });
+    }
+
+    // --- КОНЕЦ: Логика модального окна "Дополнительно" ---
+
+    // --- НАЧАЛО: Запрет копирования для .main h1 ---
+    if (kmlGeneratorTitle) {
+        // Отключить выделение текста
+        kmlGeneratorTitle.style.userSelect = 'none';
+        kmlGeneratorTitle.style.webkitUserSelect = 'none';
+        kmlGeneratorTitle.style.mozUserSelect = 'none';
+        kmlGeneratorTitle.style.msUserSelect = 'none';
+
+        // Отключить контекстное меню (клик правой кнопкой)
+        kmlGeneratorTitle.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+    }
+    
+        // --- КОНЕЦ: Логика модального окна "Дополнительно" ---
+
 
     const quickAddModal = document.getElementById('quickAddModal');
     const quickAddSearch = document.getElementById('quickAddSearch');
@@ -1955,7 +2063,7 @@ if (digitMatch) {
         updateMap(); // перерисовать без линии KML, но с возможностью красной
     }
 
-      const historyButton = document.getElementById('historyButton');
+    const historyButton = document.getElementById('historyButton');
     const historyModal = document.getElementById('historyModal');
     const historyList = document.getElementById('historyList');
     const historyModalClose = document.getElementById('historyModalClose');
@@ -2087,7 +2195,8 @@ if (digitMatch) {
         }
     }
 
-      window.addEventListener('message', e => {
+
+    window.addEventListener('message', e => {
         if (e.origin !== 'https://seellaro.github.io') return;   // безопасность
         if (e.data?.type !== 'ARGUS_WELL') return;
       
@@ -2102,7 +2211,7 @@ if (digitMatch) {
         updatePointNumbers();
         setActiveRow(row, true);                      // подсветить и показать на карте
       });
-    
+
     window.kmlGenerator = {
         map: map,
         baseLayer: baseLayer,
@@ -2116,4 +2225,3 @@ if (digitMatch) {
         loadPointsIntoUI: loadPointsIntoUI
     };
 });
-
