@@ -2087,6 +2087,22 @@ if (digitMatch) {
         }
     }
 
+      window.addEventListener('message', e => {
+        if (e.origin !== 'https://seellaro.github.io') return;   // безопасность
+        if (e.data?.type !== 'ARGUS_WELL') return;
+      
+        const {name, lat, lon} = e.data.well;
+        if (!name || !lat || !lon) return;
+      
+        pushState();                                  // чтобы Ctrl-Z работал
+        const row = addPointRow(name, `${lat.toFixed(6)}/${lon.toFixed(6)}`);
+        updateMap();
+        saveDataToLocalStorage();
+        ensureEmptyRowAtEnd();
+        updatePointNumbers();
+        setActiveRow(row, true);                      // подсветить и показать на карте
+      });
+    
     window.kmlGenerator = {
         map: map,
         baseLayer: baseLayer,
@@ -2100,3 +2116,4 @@ if (digitMatch) {
         loadPointsIntoUI: loadPointsIntoUI
     };
 });
+
