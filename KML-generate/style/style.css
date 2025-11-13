@@ -1066,3 +1066,94 @@ body.dark-theme #lineChoiceModal .btn {
 body.dark-theme #lineChoiceModal .btn:hover {
     background-color: rgba(42, 74, 106, 0.2);
 }
+/* Стили для модального окна "Что нового" */
+#whatsNewModal .modal-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(254, 234, 255, 0.76); /* Используем общий фон */
+    backdrop-filter: blur(3px);
+    width: 500px; /* Ширина чуть больше */
+    max-width: 90%;
+    max-height: 80vh; /* Максимальная высота */
+    overflow: hidden;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-theme #whatsNewModal .modal-content {
+    background-color: rgba(58, 52, 71, 0.7); /* Используем общий фон для темной темы */
+}
+
+#whatsNewModal .modal-body {
+    padding: 12px;
+    padding-top: 5px;
+    overflow-y: auto; /* Добавляем прокрутку, если контент длинный */
+    max-height: calc(80vh - 100px); /* Учитываем высоту заголовка и padding */
+}
+
+#whatsNewList {
+    list-style-type: disc; /* Или circle, на ваш выбор */
+    padding-left: 20px; /* Отступ для маркеров */
+    margin: 0;
+    color: inherit; /* Наследуем цвет текста */
+    max-height: 800px;
+    overflow-y: auto;
+}
+#whatsNewList::-webkit-scrollbar {
+    width: 6px; /* Ширина полосы прокрутки как у .suggestions */
+}
+
+#whatsNewList::-webkit-scrollbar-thumb {
+    background-color: #ccc; /* Цвет ползунка как у .suggestions */
+    border-radius: 10px; /* Закругленные углы */
+}
+
+/* Тема для темного режима */
+body.dark-theme #whatsNewList::-webkit-scrollbar-thumb {
+    background-color: #666; /* Цвет ползунка в темной теме */
+}
+
+/* Стили полосы прокрутки для Firefox */
+#whatsNewList {
+    scrollbar-width: thin; /* Тонкая полоса прокрутки */
+    scrollbar-color: #ccc transparent; /* Цвет ползунка и фона как у .suggestions */
+}
+
+body.dark-theme #whatsNewList {
+    scrollbar-color: #666 transparent; /* Цвета для темной темы */
+}
+
+#whatsNewList li {
+    margin-bottom: 8px; /* Отступ между пунктами */
+    line-height: 1.4; /* Высота строки */
+}
+
+body.dark-theme #whatsNewList li {
+    /* Цвет текста можно уточнить под ваш дизайн */
+    color: rgba(221, 221, 221, 0.9);
+}
+#advancedModal .modal-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    /* Используем общие стили фона и эффектов */
+}
+
+#advancedModal .modal-body {
+    /* Используем общий padding, но возможно, нужно больше места для списка */
+    padding-top: 5px; /* Уменьшено, так как .well-list имеет внутренние отступы */
+}
+
+#advancedOptionsList {
+    /* Используем общий стиль .well-list для скролла и фона */
+    /* Высоту можно регулировать, например, фиксированную или max-height */
+    height: auto; /* Или фиксированная высота, например, 200px */
+    max-height: 300px; /* Ограничим максимальную высоту */
+}
+#whatsNewModal p,h3,ul {
+    margin: 2px;
+    padding: 0;
+}
