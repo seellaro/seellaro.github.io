@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автоматический подсчет загрузки</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Используем библиотеку SheetJS для чтения Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Панель управления (цвета, темы) -->
+        <div class="control-panel">
+            <div class="lable">Automatic</div>
+
+            <div class="color-buttons">
+                <button id="toggleThemeButton">🌙 / 🌞</button>
+                <button class="color-btn" style="background-color: #FFDAB9;" data-color="#FFDAB9"></button>
+                <button class="color-btn" style="background-color: #f051b8;" data-color="#f051b8"></button>
+                <button class="color-btn" style="background-color: #00FF00;" data-color="#00FF00"></button>
+                <button class="color-btn" style="background-color: #16e5f0;" data-color="#16e5f0"></button>
+                <button class="color-btn" style="background-color: #FFA500;" data-color="#FFA500"></button>
+                <button class="color-btn" style="background-color: #fafa28;" data-color="#fafa28"></button>
+            </div>
+        </div>
+
+       <div class="main-content">
+        <div class="main-buttons">
+            <button id="lp-button">Загрузка ЛП</button>
+            <button id="lt-button">Загрузка ЛТ</button>
+            <button id="cbd-button">Загрузка ЦБД</button>
+            <button id="export-button">Экспорт в файл</button>
+        </div>
+
+        <div class="tabs-container">
+            <div class="listos"><div class="tabs-list" id="tabs-list"></div></div>
+            <div class="tabs-content" id="tabs-content"></div>
+        </div>
+
+        <div class="status-bar">
+            <span>Версия: 8.0</span>
+        </div>
+    </div>
+    </div>
+    <script src="script.js"></script>
+    <script src="theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+body {
+    background-color: #353535;
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    transition: color 0.9s ease-out;
+}
+
+.container {
+    height: 60%;
+    max-height: 800px;
+    width: 90%;
+    max-width: 880px;
+    min-width: 767px;
+    background-color: rgba(255, 255, 255, 0.24);
+    padding: 10px;
+    border-radius: 40px;
+    -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    position: relative;
+    -webkit-transition: background-color 0.5s ease-out, -webkit-box-shadow 0.5s ease-out;
+    transition: background-color 0.5s ease-out, box-shadow 0.5s ease-out;
+    border: #1d1d1d solid 2px;
+}
+
+body.dark-theme .container {
+    background-color: rgba(51, 51, 51, 0.767);
+}
+
+.lable{
+    font-size: 28px;
+}
+
+/* Панель управления */
+.control-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    margin-inline: 25px;
+    
+
+}
+#toggleThemeButton{
+    font-size: 16px;
+    padding: 6px 10px;
+    border-radius: 30px;
+    border: 1px solid #c9c9c9;
+    transition: all 0.3s;
+}
+body.dark-theme #toggleThemeButton {
+    background-color: #2d2d2d;
+    border: 1px solid #181818d3;
+}
+
+.theme-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.color-buttons {
+    display: flex;
+    gap: 5px;
+    
+}
+
+
+/* Основные кнопки */
+.main-buttons {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 2px;
+    
+
+}
+
+
+.main-buttons button {
+    flex: 1;
+    background-color: #ffffff;
+    
+    border: 1px solid #555;
+    border-radius: 10px;
+    padding: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 16px;
+    border: #1d1d1d solid 2px;
+}
+body.dark-theme .main-buttons button {
+    background-color: #2d2d2d;
+}
+
+#lp-button {
+    border-radius: 30px 10px 10px;
+    
+}
+#export-button {
+    border-radius: 10px 30px 10px 10px;
+    
+}
+
+.main-buttons button:hover {
+    background-color: #3d3d3d;
+}
+
+.main-buttons button:active {
+    background-color: #1d1d1d;
+}
+
+.tabs-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    
+    min-height: 0; /* Позволяет flex-контейнеру сжиматься */
+}
+
+.listos {
+    
+    border: none;
+    flex-shrink: 0; /* Не уменьшать размер при сжатии */
+    display: flex;
+    flex: 0 0 auto; /* Не растягивать и не сжимать */
+    overflow-x: scroll; /* Прокрутка по горизонтали */
+    white-space: nowrap; /* Не переносить элементы на новую строку */
+    scrollbar-width: thin; /* Для Firefox */
+    scrollbar-color: #9c9c9c #ffffff;
+    border-radius: 10px;
+}
+body.dark-theme .listos{
+    scrollbar-color: #666 #333;
+}
+
+.tabs-list::-webkit-scrollbar {
+    height: 8px; /* Высота горизонтальной полосы прокрутки */
+}
+
+.tabs-list::-webkit-scrollbar-track {
+    background: #333;
+}
+
+.tabs-list::-webkit-scrollbar-thumb {
+    background-color: #666;
+    border-radius: 4px;
+}
+
+/* Содержимое вкладок */
+.tabs-content {
+    flex: 1;
+    overflow: auto; /* Если содержимое вкладки большое */
+}
+
+.tab-item {
+    padding: 8px 16px;
+    margin-right: 4px;
+    border-radius: 12px; /* Это и делает углы закруглёнными */
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+    border: solid 2px;
+    
+    background-color: #f0f0f0;
+    border-color: #ccc;
+}
+.tab-item:hover {
+    background-color: #d4d4d4;
+}
+body.dark-theme .tab-item:hover{
+    background-color: #3d3d3d;
+}
+body.dark-theme .tab-item{
+    background-color: #2d2d2d;
+    border-color: #1d1d1d;
+}
+
+
+
+.tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    overflow-y: auto; /* прокрутка по вертикали */
+    background-color: #2d2d2d;
+   
+    border: 1px solid #555;
+    font-family: 'Nirmala UI', sans-serif;
+    font-size: 17px;
+    white-space: pre-wrap;
+    height: 600px;
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
+/* Статус бар */
+.status-bar {
+    
+    border: #ccc solid 1px;
+    margin-top: 0px;
+    padding: 5px;
+    background-color: #2d2d2d;
+    color: #FFDAB9;
+    text-align: right;
+    font-weight: bold;
+    border-radius: 0px 0px 30px 30px;
+}
+body.dark-theme .status-bar{
+    border-color: #555;
+}
+
+.status-bar span {
+    margin-right: 15px;
+}
+/* Светлая тема */
+body.light-theme {
+    background-color: white;
+    color: black;
+}
+
+body.light-theme .container {
+    background-color: white;
+    color: black;
+}
+
+body.light-theme .tabs-container {
+    background-color: white;
+    border: none;
+    
+}
+
+
+
+
+
+body.light-theme .tab-item.active {
+    background-color: white;
+    
+}
+
+body.light-theme .tab-content {
+    background-color: white;
+    color: black;
+    border-color: #ccc;
+}
+
+body.light-theme .main-buttons button {
+    background-color: #f0f0f0;
+    color: black;
+    border-color: #ccc;
+}
+
+body.light-theme .main-buttons button:hover {
+    background-color: #e0e0e0;
+}
+
+body.light-theme .main-buttons button:active {
+    background-color: #d0d0d0;
+}
+
+body.light-theme .status-bar {
+    background-color: #f0f0f0;
+    color: black;
+}
+.tabs-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    
+    min-height: 0; /* важно для корректной работы flex-дочерних элементов с overflow */
+}
+
+.tabs-list {
+    
+    margin-top: 4px;
+    display: flex;
+    gap: 1px;
+    flex-shrink: 0; /* вкладки не сжимаются */
+}
+
+.tabs-content {
+    background-color: #2c2c2c94;
+    flex: 1;
+    min-height: 0; /* позволяет дочерним элементам управлять overflow */
+}
+
+
+.tab-content.hidden {
+    display: none;
+}
+
+.tabs-content::-webkit-scrollbar {
+    width: 6px; /* Ширина полосы прокрутки как у .suggestions */
+}
+
+.tabs-content::-webkit-scrollbar-thumb {
+    background-color: #ccc; /* Цвет ползунка как у .suggestions */
+    border-radius: 10px; /* Закругленные углы */
+}
+.tabs-content {
+    scrollbar-width: thin; /* Тонкая полоса прокрутки */
+    scrollbar-color: #ccc transparent; /* Цвет ползунка и фона как у .suggestions */
+}
+.main-content{
+    border-radius: 30px;
+    
+}
+/* style.css */
+.ripple-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit; /* Наследует радиус от кнопки */
+    pointer-events: none; /* Позволяет кликам проходить сквозь оверлей */
+    overflow: hidden; /* Обрезает круг за пределами кнопки */
+    /* Убедитесь, что z-index не мешает другим элементам */
+    z-index: 1;
+  }
+  
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple-animation 0.6s linear;
+    pointer-events: none;
+  }
+  
+  @keyframes ripple-animation {
+    to {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  
+  /* Пример стиля для кнопки выбора цвета, если не задан */
+  .color-btn {
+    width: 35px;
+    height: 35px;
+    border: 1px solid #555;
+    border-radius: 30px;
+    cursor: pointer;
+    padding: 0;
+    position: relative;
+    padding: 5px;
+    margin: 2px;
+    border: 1px solid #ccc; /* или цвет границы в теме */
+    background-color: transparent;
+    cursor: pointer;
+    transition: filter ease-in 0.2s;
+  }
+  body.dark-theme .color-btn{
+    filter: brightness(0.8);
+    
+  }
