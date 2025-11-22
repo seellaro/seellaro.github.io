@@ -1270,9 +1270,28 @@ function performExport(format) {
     let content = '';
 
     if (format === 'txt') {
+        // === НОВАЯ ЛОГИКА TXT: максимально близко к тому, что видит пользователь ===
         content = tabsData
-            .map(tab => `=== ${tab.name} ===\n${tab.content.replace(/<[^>]*>/g, '')}`)
+            .map(tab => {
+                // 1. Убираем все HTML-теги (<h4>, <br> и т.д.)
+                let text = tab.content
+                    .replace(/<\/?h4[^>]*>/gi, '')     // убираем <h4>
+                    .replace(/<br\s*\/?>/gi, '\n')     // <br> → перенос строки
+                    .replace(/&nbsp;/gi, ' ')          // на всякий случай
+
+                // 2. Убираем лишние пробелы, но сохраняем переносы
+                const lines = text
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);  // убираем пустые строки
+
+                // 3. Собираем обратно с правильными отступами
+                return `=== ${tab.name} ===\n${lines.join('\n')}`;
+            })
             .join('\n\n');
+
+        // Добавляем пустую строку в конец файла (удобно)
+        content += '\n';
 
     } else if (format === 'json') {
         const UNIT_MAP = {
@@ -1389,5 +1408,6 @@ document.getElementById('export-modal').addEventListener('click', function (e) {
     document.getElementById('export-modal').classList.add('hidden');
     performExport(format);
 });
+
 
 
