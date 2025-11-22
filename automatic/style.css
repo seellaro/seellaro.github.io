@@ -15,7 +15,10 @@ body {
     align-items: center;
     transition: color 0.9s ease-out;
 }
-
+h4,h3 {
+    margin: 0;
+    padding: 0;
+}
 .container {
     height: 60%;
     max-height: 800px;
@@ -75,18 +78,10 @@ body.dark-theme #toggleThemeButton {
 }
 
 
-/* Основные кнопки */
-.main-buttons {
-    display: flex;
-    gap: 2px;
-    margin-bottom: 2px;
-    
-
-}
 
 
 .main-buttons button {
-    flex: 1;
+    
     background-color: #ffffff;
     
     border: 1px solid #555;
@@ -96,19 +91,13 @@ body.dark-theme #toggleThemeButton {
     cursor: pointer;
     font-size: 16px;
     border: #1d1d1d solid 2px;
+    transition: background-color ease-out 0.3s;
 }
 body.dark-theme .main-buttons button {
     background-color: #2d2d2d;
 }
 
-#lp-button {
-    border-radius: 30px 10px 10px;
-    
-}
-#export-button {
-    border-radius: 10px 30px 10px 10px;
-    
-}
+
 
 .main-buttons button:hover {
     background-color: #3d3d3d;
@@ -117,13 +106,19 @@ body.dark-theme .main-buttons button {
 .main-buttons button:active {
     background-color: #1d1d1d;
 }
+body.dark-theme .main-buttons button:hover{
+    background-color: #3d3d3d;
+}
+body.dark-theme .main-buttons button:active{
+    background-color: #5c5c5c;
+}
 
 .tabs-container {
     flex: 1;
     display: flex;
     flex-direction: column;
     border: none;
-    
+    overflow: auto; /* Если содержимое вкладки большое */
     min-height: 0; /* Позволяет flex-контейнеру сжиматься */
 }
 
@@ -157,10 +152,7 @@ body.dark-theme .listos{
 }
 
 /* Содержимое вкладок */
-.tabs-content {
-    flex: 1;
-    overflow: auto; /* Если содержимое вкладки большое */
-}
+
 
 .tab-item {
     padding: 8px 16px;
@@ -168,7 +160,7 @@ body.dark-theme .listos{
     border-radius: 12px; /* Это и делает углы закруглёнными */
     cursor: pointer;
     font-size: 16px;
-    transition: background-color 0.3s ease;
+    transition: background-color,transform 0.3s ease;
     border: solid 2px;
     
     background-color: #f0f0f0;
@@ -184,8 +176,16 @@ body.dark-theme .tab-item{
     background-color: #2d2d2d;
     border-color: #1d1d1d;
 }
-
-
+.tab-item.active { 
+    background-color: #3d3d3d;
+    font-weight: bold;
+    transform: translateY(-2px);
+}
+body.dark-theme .tab-item.active {
+    background-color: #3d3d3d;
+    font-weight: bold;
+    transform: translateY(-2px);
+}
 
 .tab-content {
     flex: 1;
@@ -267,9 +267,6 @@ body.light-theme .main-buttons button:hover {
     background-color: #e0e0e0;
 }
 
-body.light-theme .main-buttons button:active {
-    background-color: #d0d0d0;
-}
 
 body.light-theme .status-bar {
     background-color: #f0f0f0;
@@ -295,6 +292,8 @@ body.light-theme .status-bar {
     background-color: #2c2c2c94;
     flex: 1;
     min-height: 0; /* позволяет дочерним элементам управлять overflow */
+    scrollbar-width: thin; /* Тонкая полоса прокрутки */
+    scrollbar-color: #ccc transparent; /* Цвет ползунка и фона как у .suggestions */
 }
 
 
@@ -302,51 +301,27 @@ body.light-theme .status-bar {
     display: none;
 }
 
+
+body.dark-theme .tabs-content{
+    scrollbar-color: #666 #333;
+}
+
 .tabs-content::-webkit-scrollbar {
-    width: 6px; /* Ширина полосы прокрутки как у .suggestions */
+    width: 8px; /* Высота горизонтальной полосы прокрутки */
+}
+
+.tabs-content::-webkit-scrollbar-track {
+    background: #333;
 }
 
 .tabs-content::-webkit-scrollbar-thumb {
-    background-color: #ccc; /* Цвет ползунка как у .suggestions */
-    border-radius: 10px; /* Закругленные углы */
-}
-.tabs-content {
-    scrollbar-width: thin; /* Тонкая полоса прокрутки */
-    scrollbar-color: #ccc transparent; /* Цвет ползунка и фона как у .suggestions */
+    background-color: #666;
+    border-radius: 4px;
 }
 .main-content{
     border-radius: 30px;
     
 }
-/* style.css */
-.ripple-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: inherit; /* Наследует радиус от кнопки */
-    pointer-events: none; /* Позволяет кликам проходить сквозь оверлей */
-    overflow: hidden; /* Обрезает круг за пределами кнопки */
-    /* Убедитесь, что z-index не мешает другим элементам */
-    z-index: 1;
-  }
-  
-  .ripple {
-    position: absolute;
-    border-radius: 50%;
-    transform: scale(0);
-    animation: ripple-animation 0.6s linear;
-    pointer-events: none;
-  }
-  
-  @keyframes ripple-animation {
-    to {
-      transform: scale(2);
-      opacity: 0;
-    }
-  }
-  
   /* Пример стиля для кнопки выбора цвета, если не задан */
   .color-btn {
     width: 35px;
@@ -367,3 +342,212 @@ body.light-theme .status-bar {
     filter: brightness(0.8);
     
   }
+
+  /* Кнопка загрузки стала шире и красивее */
+.main-buttons {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 2px;
+    width: 100%; /* важно! */
+}
+
+#universal-load-button {
+    flex: 3 !important;                    /* занимает место трёх старых кнопок */
+    border-radius: 30px 10px 10px 10px !important;
+    font-size: 18px;
+    font-weight: bold;
+    position: relative;
+    min-width: 0;                /* обязательно для flex */
+}
+
+#export-button {
+    flex: 1;
+    border-radius: 10px 30px 10px 10px;
+}
+
+/* Контекстное меню при ПКМ */
+#context-menu {
+    position: fixed; /* важно! fixed, а не absolute */
+    background-color: #2d2d2d;
+    border: 2px solid #444;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    min-width: 230px;
+    padding: 10px 0;
+    user-select: none;
+    display: none; /* скрыто по умолчанию */
+    left: 0;
+    top: 0;
+}
+
+
+
+/* Стрелочка вверх */
+#context-menu::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-bottom: 9px solid #444;
+}
+
+#context-menu::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #2d2d2d;
+}
+
+body.light-theme #context-menu {
+    background-color: white;
+    border-color: #ccc;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+body.light-theme #context-menu::before { border-bottom-color: #ccc; }
+body.light-theme #context-menu::after { border-bottom-color: white; }
+
+
+.menu-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    
+}
+
+.menu-item:hover {
+    background-color: #3d3d3d;
+   
+}
+
+body.light-theme .menu-item:hover {
+    background-color: #e2e2e2;
+    
+}
+
+.hidden { display: none; }
+
+/* === МОДАЛЬНОЕ ОКНО ЭКСПОРТА (чистый HTML/CSS) === */
+.export-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.253);
+    backdrop-filter: blur(4px);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.export-modal:not(.hidden) {
+    opacity: 1;
+    visibility: visible;
+}
+
+.export-modal-content {
+    background-color: #2d2d2d;
+    padding: 34px 40px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    min-width: 340px;
+    max-width: 90%;
+    border: 2px solid #444;
+    animation: modalPop 0.3s ease-out;
+}
+
+@keyframes modalPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+body.light-theme .export-modal-content {
+    background-color: white;
+    color: black;
+    border-color: #ccc;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+.export-modal h3 {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    color: #FFDAB9;
+}
+
+body.light-theme .export-modal h3 {
+    color: #333;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin: 25px 0;
+}
+
+.export-btn {
+    padding: 16px 28px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.25s ease;
+    min-width: 110px;
+}
+
+.json-btn {
+    background: #2196F3;
+    color: white;
+}
+
+.json-btn:hover {
+    background: #1e88e5;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(33, 150, 243, 0.4);
+}
+
+.txt-btn {
+    background: #4CAF50;
+    color: white;
+}
+
+.txt-btn:hover {
+    background: #45a049;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+}
+
+.export-cancel {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 15px;
+    cursor: pointer;
+    margin-top: 16px;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+
+.export-cancel:hover {
+    color: #fff;
+}
+
+body.light-theme .export-cancel:hover {
+    color: #333;
+}
+
+.hidden {
+    display: none !important;
+}
