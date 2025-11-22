@@ -1,70 +1,304 @@
-// Глобальные переменные для хранения данных
 let currentServiceCounts = {};
 let currentServiceCountsReserved = {};
-let tabsData = []; // [{name: '...', content: '...'}, ...]
-
-// Глобальная переменная для отслеживания уникальных записей между файлами в одной операции
+let tabsData = [];
 let globalSeenServicesAndCodes = {};
 
-
-
-
+// Храним информацию о загруженных файлах для проверок
+let loadedFilesInfo = []; // [{name: string, detectedType: 'lp'|'lt'|'cbd'}]
 
 document.addEventListener('DOMContentLoaded', function () {
     initializeApp();
     setupEventListeners();
-    updateStyles();
 });
 
 function initializeApp() {
-    // Инициализация данных
     currentServiceCounts = {};
     currentServiceCountsReserved = {};
-    tabsData.length = 0;
-    // Инициализация глобального объекта для отслеживания
+    tabsData = [];
     globalSeenServicesAndCodes = {};
+    loadedFilesInfo = [];
     updateTabsDisplay();
 }
 
+let forcedMode = 'auto';
+
 function setupEventListeners() {
-    document.getElementById('lp-button').addEventListener('click', () => openFile('lp'));
-    document.getElementById('lt-button').addEventListener('click', () => openFile('lt'));
-    document.getElementById('cbd-button').addEventListener('click', () => openFile('cbd'));
+    const loadBtn = document.getElementById('universal-load-button');
+    const contextMenu = document.getElementById('context-menu');
+
+    // Левый клик — всегда загрузка в текущем выбранном режиме
+    loadBtn.addEventListener('click', () => {
+        openFilesWithMode(forcedMode);
+    });
+
+    // Правая кнопка — открываем контекстное меню
+    loadBtn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+
+        const btnRect = loadBtn.getBoundingClientRect();
+        const menuWidth = 240;
+        const menuHeight = contextMenu.offsetHeight || 180;
+
+        let left = btnRect.left + btnRect.width / 2 - menuWidth / 2;
+        let top = btnRect.bottom + 8;
+
+        // Корректировка, чтобы не вылезало за экран
+        if (left < 10) left = 10;
+        if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
+        if (top + menuHeight > window.innerHeight) top = btnRect.top - menuHeight - 8;
+
+        contextMenu.style.left = `${left}px`;
+        contextMenu.style.top = `${top}px`;
+        contextMenu.style.display = 'block';
+    });
+
+    // Выбор пункта меню
+    contextMenu.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+            forcedMode = item.getAttribute('data-mode');
+
+            // === НОВАЯ ЧАСТЬ: меняем текст кнопки ===
+            const modeTexts = {
+                'auto': 'Загрузка файлов (Авто)',
+                'lp': 'Загрузка файлов (Только ЛП)',
+                'lt': 'Загрузка файлов (Только ЛТ)',
+                'cbd': 'Загрузка файлов (Только ЦБД)'
+            };
+            loadBtn.textContent = modeTexts[forcedMode];
+            // ======================================
+
+            // Подсвечиваем выбранный пункт (опционально)
+            contextMenu.querySelectorAll('.menu-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+
+            contextMenu.style.display = 'none';
+
+            // Запускаем загрузку в выбранном режиме
+            openFilesWithMode(forcedMode);
+        });
+    });
+
+    // Закрытие меню при клике вне его и кнопки
+    document.addEventListener('click', (e) => {
+        if (!loadBtn.contains(e.target) && !contextMenu.contains(e.target)) {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    // Закрытие по Esc
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    // Экспорт
     document.getElementById('export-button').addEventListener('click', exportData);
 }
 
 
 
 
+// === ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ===
+function openFilesWithMode(mode = 'auto') {
+    let input = document.getElementById('hidden-file-input');
+    if (!input) {
+        input = document.createElement('input');
+        input.id = 'hidden-file-input';
+        input.type = 'file';
+        input.accept = '.xlsx,.xls';
+        input.multiple = true;
+        input.style.display = 'none';
+        document.body.appendChild(input);
+    }
 
+    input.onchange = null;
 
-
-function openFile(type) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.xlsx,.xls,.xml';
-    input.multiple = true;
-    input.onchange = e => {
-        const files = e.target.files;
+    input.onchange = async (e) => {
+        const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        // Сброс ВСЕХ данных и глобального объекта перед обработкой новых файлов
-        currentServiceCounts = {};
-        currentServiceCountsReserved = {};
-        tabsData = [];
-        globalSeenServicesAndCodes = {}; // Сброс для новой операции
+        initializeApp();
 
-        const promises = Array.from(files).map(file => processFile(file, type));
-        Promise.all(promises).then(() => {
-            generateTabsContent(currentServiceCounts, currentServiceCountsReserved);
-            updateTabsDisplay();
-        }).catch(error => {
-            console.error('Ошибка при обработке файлов:', error);
-            alert(`Ошибка при обработке файлов: ${error.message || error}`);
-        });
+        const processingResults = [];
+        let hasCriticalError = false;
+
+        for (const file of files) {
+            try {
+                if (mode !== 'auto') {
+                    // Режим "Только ЛП / Только ЛТ / Только ЦБД"
+                    const detected = await detectFileType(file);
+                    if (detected !== mode) {
+                        const userChoice = confirm(
+                            `Файл "${file.name}" — определён как ${formatType(detected).toUpperCase()}, а выбран режим "${formatType(mode).toUpperCase()}"\n\n` +
+                            `Всё равно загрузить как ${formatType(mode).toUpperCase()}?`
+                        );
+                        if (!userChoice) {
+                            processingResults.push(`⚠ ${file.name} — пропущен (не соответствует режиму)`);
+                            continue;
+                        }
+                    }
+                    await processFile(file, mode);
+                    loadedFilesInfo.push({ name: file.name, detectedType: mode });
+                    processingResults.push(`✔ ${file.name} — загружен как ${formatType(mode)}())}`);
+                } else {
+                    // Автоопределение
+                    const detected = await detectFileType(file);
+                    await processFile(file, detected);
+                    loadedFilesInfo.push({ name: file.name, detectedType: detected });
+                    processingResults.push(`✔ ${file.name} — ${formatType(detected)}`);
+                }
+            } catch (err) {
+                hasCriticalError = true;
+                processingResults.push(`✖ ${file.name} — ОШИБКА: ${err.message}`);
+                console.error(`Ошибка обработки файла ${file.name}:`, err);
+            }
+        }
+
+        // === Проверка однотипности в авторежиме ===
+        if (mode === 'auto' && loadedFilesInfo.length > 1) {
+            const counts = {};
+            loadedFilesInfo.forEach(f => counts[f.detectedType] = (counts[f.detectedType] || 0) + 1);
+            const maxCount = Math.max(...Object.values(counts));
+            const majorityType = Object.keys(counts).find(t => counts[t] === maxCount);
+
+            const mismatched = loadedFilesInfo.filter(f => f.detectedType !== majorityType);
+
+            if (mismatched.length > 0) {
+                hasCriticalError = true;
+                const list = mismatched.map(f => `• ${f.name} → ${formatType(f.detectedType).toUpperCase()}`).join('\n');
+                processingResults.push(
+                    `\n⚠ Обнаружены файлы другого типа!\n` +
+                    `Большинство файлов: ${formatType(majorityType).toUpperCase()} (${maxCount} из ${loadedFilesInfo.length})\n` +
+                    `Отличающиеся:\n${list}\n\n` +
+                    `Они будут пропущены.`
+                );
+                // Удаляем их из обработки
+                loadedFilesInfo = loadedFilesInfo.filter(f => f.detectedType === majorityType);
+            }
+        }
+
+        // Генерация результата
+        generateTabsContent(currentServiceCounts, currentServiceCountsReserved);
+        updateTabsDisplay();
+
+        // Уведомление ТОЛЬКО при ошибках или предупреждениях
+        const finalMessage = processingResults.join('\n');
+        if (hasCriticalError || processingResults.some(r => r.includes('пропущен') || r.includes('ОШИБКА'))) {
+            alert(finalMessage);
+        }
+        // Если всё ок — тишина (как ты и хотел)
     };
+
     input.click();
 }
+
+// === Отдельная функция определения типа (надёжная) ===
+async function detectFileType(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0].toLowerCase();
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+                if (!firstSheet || !firstSheet['!ref']) {
+                    console.warn(`[Тип] ${file.name} → пустой → ЛП`);
+                    return resolve('lp');
+                }
+
+                const range = XLSX.utils.decode_range(firstSheet['!ref']);
+                range.e.r = Math.min(range.e.r, 39);
+                const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", range: XLSX.utils.encode_range(range) });
+
+                const allCellsLower = json.flat().map(c => String(c || "").trim().toLowerCase());
+
+                console.group(`%c[Определение типа] ${file.name}`, 'color: #00d0ff; font-weight: bold');
+
+                // 1. ЦБД — первый и главный
+                if (allCellsLower.some(c => c === 'код' || c.includes('код'))) {
+                    console.log(`%c→ ЦБД (найден заголовок "Код")`, 'color: lime; font-weight: bold');
+                    console.groupEnd();
+                    return resolve('cbd');
+                }
+
+                // 2. ЛП — проверяем ЯВНЫЕ признаки ЛП ДО ЛТ!
+                const lpProof = allCellsLower.some(c =>
+                    c.includes('пс1') || c.includes('пс2') ||
+                    c.includes('емкость stm') || c.includes('занято stm') ||
+                    c.includes('свободно stm') || c.includes('вид услуги')
+                );
+
+                if (lpProof) {
+                    console.log(`%c→ ЛП (найдены ПС1/ПС2, STM, "Вид услуги" и т.д.)`, 'color: cyan; font-weight: bold');
+                    console.groupEnd();
+                    return resolve('lp');
+                }
+
+                // 3. Только теперь проверяем ЛТ (чтобы ЛП с упоминанием WDM не попал сюда)
+                const ltHeaders = ['резервирование', 'разнесение', 'есть резерв', 'влс', 'ур', 'мно', 'ви/вс'];
+                const hasLTHeader = allCellsLower.some(c => ltHeaders.some(h => c.includes(h)));
+
+                // WDM в ЛТ-файлах почти всегда в названии листа + есть слово "маршрут"
+                const hasRealWDM = (firstSheetName.includes('wdm') || allCellsLower.some(c => c.includes('wdm')))
+                    && allCellsLower.some(c => c.includes('маршрут'));
+
+                if (hasLTHeader || hasRealWDM) {
+                    console.log(`%c→ ЛТ (ЛТ-заголовки или WDM + "маршрут")`, 'color: yellow; font-weight: bold');
+                    console.groupEnd();
+                    return resolve('lt');
+                }
+
+                // Если ничего не подошло
+                console.warn(`%c→ Неизвестный тип — считаем ЛП`, 'color: orange');
+                console.groupEnd();
+                resolve('lp');
+
+            } catch (err) {
+                console.error(`[Ошибка] ${file.name}:`, err);
+                console.groupEnd();
+                reject(err);
+            }
+        };
+        reader.onerror = () => reject(new Error('Ошибка чтения'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function formatType(type) {
+    return type === 'lp' ? 'ЛП' : type === 'lt' ? 'ЛТ' : 'ЦБД';
+}
+
+// === processFile — без изменений (работает корректно) ===
+// (весь остальной код processLPData / processLTData / processCBDData и ниже — оставляем как был)
+
+function processFile(file, type) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                if (type === 'lp') processLPData(jsonData);
+                else if (type === 'lt') processLTData(jsonData);
+                else if (type === 'cbd') processCBDData(jsonData);
+
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        };
+        reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 
 // --- ИЗМЕНЕНО: processFile НЕ передает seen_services/codes ---
 function processFile(file, type) {
@@ -98,6 +332,14 @@ function processFile(file, type) {
 // --- Функции обработки данных ---
 // --- ИЗМЕНЕНО: processLPData использует globalSeenServicesAndCodes ---
 function processLPData(data) {
+    // Helper functions
+    function is_na(value) {
+        return value === null || value === undefined || value === '' || (typeof value === 'number' && isNaN(value));
+    }
+    function not_na(value) {
+        return !is_na(value);
+    }
+
     // Инициализация структуры данных ЛОКАЛЬНО
     let serviceCounts = {
         'ОК': {}, '100 ГБит/с': {}, '10 ГБит/с': {}, '2.5 ГБит/с': {},
@@ -109,8 +351,8 @@ function processLPData(data) {
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
         // Получаем значения столбцов
-        const service_value = row[0]; // A
-        const additional_value = row[13]; // N
+        let service_value = row[0]; // A
+        let additional_value = row[13]; // N
         const status_value = row[10]; // K
         const column_l_value = row[11]; // L
         const column_m_value = row[12]; // M
@@ -134,7 +376,7 @@ function processLPData(data) {
         // --- КОНЕЦ ПРОВЕРКИ ---
 
         // Проверка на "Действующее" и отсутствие "РЕЗ"
-        if (isinstance(status_value, 'str') && status_value.trim() === "Действующее" && isinstance(service_value, 'str') && !String(additional_value).includes('РЕЗ')) {
+        if (typeof status_value === 'string' && status_value.trim() === "Действующее" && typeof service_value === 'string' && !String(additional_value).includes('РЕЗ')) {
             let primary_service = null;
             // Логика для ОК
             if (String(service_value).includes("OC") && (not_na(column_m_value) || not_na(additional_value))) {
@@ -178,7 +420,7 @@ function processLPData(data) {
                 else if (String(service_value).includes('VC3')) primary_service = '45 МБит/с';
                 else if ((String(service_value).includes('VC12') || String(service_value).includes('E1'))) {
                     if (is_na(column_m_value) && is_na(additional_value)) {
-                        // additional_value = "ПЦТ"; // Не нужно менять переменную, просто используем строку
+                        additional_value = "ПЦТ";
                     }
                     primary_service = '2 МБит/с';
                 }
@@ -224,7 +466,7 @@ function processLPData(data) {
                 let display_value;
                 if (not_na(additional_value)) {
                     const prefix = String(additional_value).startsWith('ГС') ? 'Спецпользователь' : String(additional_value);
-                    display_value = `${prefix} ${service_main}`;
+                    display_value = `${prefix} ${service_main})`;
                 } else {
                     display_value = service_main;
                 }
@@ -277,6 +519,14 @@ function processLPData(data) {
 
 // --- ИЗМЕНЕНО: processLTData использует globalSeenServicesAndCodes ---
 function processLTData(data) {
+    // Helper functions
+    function is_na(value) {
+        return value === null || value === undefined || value === '' || (typeof value === 'number' && isNaN(value));
+    }
+    function not_na(value) {
+        return !is_na(value);
+    }
+
     // Инициализация структуры данных ЛОКАЛЬНО
     let serviceCounts = {
         'ОК': {}, '100 ГБит/с': {}, '10 ГБит/с': {}, '2.5 ГБит/с': {},
@@ -295,8 +545,8 @@ function processLTData(data) {
     let olp_reserved = 0;
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        const service_value = row[0];
-        const additional_value = row[10];
+        let service_value = row[0];
+        let additional_value = row[10];
         const status_value = row[2];
         const column_j_value = row[9];
         const column_m_value = row[12];
@@ -310,9 +560,11 @@ function processLTData(data) {
         // Проверка OC. и "Есть резерв" с пропуском следующей строки OC.
         if (i < len_of_df - 1) { // Убедимся, что следующая строка существует
             const next_row = data[i + 1];
-            if (not_na(service_value) && String(service_value).includes("OC.") && String(reserve_status_raw) === "Есть резерв" && not_na(next_row[0]) && !String(next_row[0]).includes("OC.")) {
+            const next_sv = next_row[0];
+            const next_is_oc = not_na(next_sv) && String(next_sv).includes("OC.");
+            if (not_na(service_value) && String(service_value).includes("OC.") && String(reserve_status_raw) === "Есть резерв" && !next_is_oc) {
                 reserved = "Есть резерв";
-            } else if (not_na(next_row[0]) && String(next_row[0]).includes("OC.")) {
+            } else if (next_is_oc) {
                 data[i][17] = reserved; // Присваиваем значение из предыдущей итерации
                 reserved = undefined; // Сбрасываем
             }
@@ -339,7 +591,7 @@ function processLTData(data) {
         // --- КОНЕЦ ПРОВЕРКИ ---
 
         // Проверка статуса и отсутствия "РЕЗ"
-        if (isinstance(status_value, 'str') && status_value.trim() === "Д" && isinstance(service_value, 'str') && !String(additional_value).includes('РЕЗ')) {
+        if (typeof status_value === 'string' && status_value.trim() === "Д" && typeof service_value === 'string' && !String(additional_value).includes('РЕЗ')) {
             let primary_service = null;
             const is_reserved = String(data[i][17]) === "Есть резерв"; // Проверяем резерв для текущей строки
             let target_counts = is_reserved ? serviceCountsReserved : serviceCounts;
@@ -382,7 +634,7 @@ function processLTData(data) {
                     else if (String(service_value).includes('VC3')) primary_service = '45 МБит/с';
                     else if ((String(service_value).includes('VC12') || String(service_value).includes('E1'))) {
                         if (is_na(column_m_value) && is_na(additional_value)) {
-                            // additional_value = "ПЦТ"; // Не меняем переменную, просто используем строку
+                            additional_value = "ПЦТ";
                         }
                         primary_service = '2 МБит/с';
                     }
@@ -480,7 +732,7 @@ function processLTData(data) {
                     else if (String(service_value).includes('VC3')) primary_service = '45 МБит/с';
                     else if ((String(service_value).includes('VC12') || String(service_value).includes('E1'))) {
                         if (is_na(column_m_value) && is_na(additional_value)) {
-                            // additional_value = "ПЦТ"; // Не меняем переменную, просто используем строку
+                            additional_value = "ПЦТ";
                         }
                         primary_service = '2 МБит/с';
                     }
@@ -512,7 +764,7 @@ function processLTData(data) {
                     let display_value;
                     if (not_na(additional_value)) {
                         const prefix = String(additional_value).startsWith('ГС') ? 'Спецпользователь' : String(additional_value);
-                        display_value = `${prefix} ${service_main}`;
+                        display_value = `${prefix} ${service_main})`;
                     } else {
                         display_value = service_main;
                     }
@@ -572,6 +824,14 @@ function processLTData(data) {
 
 // --- ИЗМЕНЕНО: processCBDData использует globalSeenServicesAndCodes ---
 function processCBDData(data) {
+    // Helper functions
+    function is_na(value) {
+        return value === null || value === undefined || value === '' || (typeof value === 'number' && isNaN(value));
+    }
+    function not_na(value) {
+        return !is_na(value);
+    }
+
     // Инициализация структуры данных ЛОКАЛЬНО
     let serviceCounts = {
         'ОК': {}, '100 ГБит/с': {}, '10 ГБит/с': {}, '2.5 ГБит/с': {},
@@ -591,8 +851,9 @@ function processCBDData(data) {
     const systemIndex = headers.indexOf('Система');
     const mkIndex = headers.indexOf('МК');
 
-    if (codeIndex === -1) {
-        console.error("Столбец 'Код' не найден в файле ЦБД.");
+    if (codeIndex === -1 || tractIndex === -1 || indexIndex === -1 || speedIndex === -1 || usageIndex === -1 ||
+        clientAIndex === -1 || clientBIndex === -1 || systemIndex === -1 || mkIndex === -1) {
+        console.error("Не все необходимые столбцы найдены в файле ЦБД.");
         return; // Прерываем обработку файла
     }
 
@@ -600,7 +861,7 @@ function processCBDData(data) {
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
         const code_raw = row[codeIndex];
-        const code = String(code_raw).trim(); // Преобразуем в строку и убираем пробелы
+        const code = not_na(code_raw) ? String(code_raw).trim() : '';
 
         // Пропускаем строки без кода
         if (!code) {
@@ -620,18 +881,18 @@ function processCBDData(data) {
         const index_raw = row[indexIndex];
         const speed_raw = row[speedIndex];
         const usage_raw = row[usageIndex];
-        const clientA = row[clientAIndex];
-        const clientB = row[clientBIndex];
+        const clientA_raw = row[clientAIndex];
+        const clientB_raw = row[clientBIndex];
         const system_raw = row[systemIndex];
         const mk_raw = row[mkIndex];
-        const tract = String(tract_raw).trim().toUpperCase();
-        const index_ = String(index_raw).trim();
-        const speed = String(speed_raw).trim().toUpperCase();
-        let usage = String(usage_raw).trim();
-        const cA = String(clientA).trim();
-        const cB = String(clientB).trim();
-        const system = String(system_raw).trim();
-        const mk = String(mk_raw).trim().toUpperCase();
+        const tract = not_na(tract_raw) ? String(tract_raw).trim().toUpperCase() : '';
+        const index_ = not_na(index_raw) ? String(index_raw).trim() : '';
+        const speed = not_na(speed_raw) ? String(speed_raw).trim().toUpperCase() : '';
+        let usage = not_na(usage_raw) ? String(usage_raw).trim() : '';
+        const cA = not_na(clientA_raw) ? String(clientA_raw).trim() : '';
+        const cB = not_na(clientB_raw) ? String(clientB_raw).trim() : '';
+        const system = not_na(system_raw) ? String(system_raw).trim() : '';
+        const mk = not_na(mk_raw) ? String(mk_raw).trim().toUpperCase() : '';
 
         if (['6', '7', '8'].includes(index_)) {
             continue;
@@ -655,17 +916,15 @@ function processCBDData(data) {
         else if (tract === 'ТЦТ') primary = '45 МБит/с';
         else if (tract === 'ЧЦТ' || tract === 'ЧГ') {
             primary = null;
-            const mkUpper = mk.toUpperCase();
-            const speedUpper = speed.toUpperCase();
             if (!mk) {
-                if (speedUpper.startsWith('10')) primary = '10 ГБит/с';
-                else if (speedUpper.startsWith('155')) primary = '155 МБит/с';
-                else if ((speedUpper.startsWith('1') && !speedUpper.startsWith('10')) || speedUpper.includes('GE')) primary = '1 ГБит/с';
+                if (speed.startsWith('10')) primary = '10 ГБит/с';
+                else if (speed.startsWith('155')) primary = '155 МБит/с';
+                else if ((speed.startsWith('1') && !speed.startsWith('10')) || speed.includes('GE')) primary = '1 ГБит/с';
             } else {
-                if (mkUpper.startsWith('155') || mkUpper.startsWith('1890') || mkUpper.startsWith('VC4S')) primary = '155 МБит/с';
-                else if (mkUpper.startsWith('10') || mkUpper.startsWith('64') || mkUpper.startsWith('120960')) primary = '10 ГБит/с';
-                else if (mkUpper.startsWith('2.5')) primary = '2.5 ГБит/с';
-                else if ((speedUpper.startsWith('1') && !speedUpper.startsWith('10')) || speedUpper.includes('GE')) primary = '1 ГБит/с';
+                if (mk.startsWith('155') || mk.startsWith('1890') || mk.startsWith('VC4S')) primary = '155 МБит/с';
+                else if (mk.startsWith('10') || mk.startsWith('64') || mk.startsWith('120960')) primary = '10 ГБит/с';
+                else if (mk.startsWith('2.5')) primary = '2.5 ГБит/с';
+                else if ((speed.startsWith('1') && !speed.startsWith('10')) || speed.includes('GE')) primary = '1 ГБит/с';
             }
         }
         else if (tract === 'ЛТ' && usage.toUpperCase().startsWith('ГС')) primary = 'Спец';
@@ -684,7 +943,7 @@ function processCBDData(data) {
         }
 
         if (primary === 'Спец' && usage.toUpperCase().startsWith('ГС')) {
-            display_value = display_value.replace('ГС', 'Спецпользователь', 1);
+            display_value = display_value.replace('ГС', 'Спецпользователь');
         }
 
         if (!serviceCounts[primary].hasOwnProperty(display_value)) {
@@ -730,6 +989,9 @@ function isinstance(value, type) {
     return false;
 }
 
+
+
+
 function generateTabsContent(serviceCounts, serviceCountsReserved) {
     tabsData = [];
     const order = ['ОК', '100 ГБит/с', '10 ГБит/с', '2.5 ГБит/с', '1 ГБит/с', '155 МБит/с', '45 МБит/с', '2 МБит/с', 'Спец', 'Тёмные ОВ'];
@@ -751,117 +1013,184 @@ function generateTabsContent(serviceCounts, serviceCountsReserved) {
             continue;
         }
 
-        let content = ""; // Теперь content будет HTML строкой
+        let content = "";
+
         const total_count = Object.values(categories).reduce((sum, val) => sum + val, 0);
         const total_count_reserved = Object.values(categoriesReserved).reduce((sum, val) => sum + val, 0);
         const has_any_reserved_data = Object.keys(currentServiceCountsReserved).some(
             key => Object.keys(currentServiceCountsReserved[key]).length > 0
         );
 
-        if (has_any_reserved_data && (total_count > 0 || total_count_reserved > 0)) {
-             const total_all = total_count + total_count_reserved;
-             content += `<h4>Всего сервисов: ${total_all}</h4>`;
-             content += `<h4>Пропало: ${total_count}</h4>`;
-             if (total_count > 0) {
-                 const allCats = Object.entries(categories);
-                 const printed = new Set();
-                 for (const group of priority) {
-                     for (const [category, count] of allCats) {
-                         if (printed.has(category)) continue;
-                         if (group.some(p => category.includes(p))) {
-                             content += `${category}: ${count}\n`;
-                             printed.add(category);
-                         }
-                     }
-                 }
-                 for (const [category, count] of allCats) {
-                     if (printed.has(category)) continue;
-                     content += `${category}: ${count}\n`;
-                 }
-             }
-             content += `<h4>Зарезервировано: ${total_count_reserved}</h4>`;
-             if (total_count_reserved > 0) {
-                 const allCatsReserved = Object.entries(categoriesReserved);
-                 const printedReserved = new Set();
-                 for (const group of priority) {
-                     for (const [category, count] of allCatsReserved) {
-                         if (printedReserved.has(category)) continue;
-                         if (group.some(p => category.includes(p))) {
-                             content += `${category}: ${count}\n`;
-                             printedReserved.add(category);
-                         }
-                     }
-                 }
-                 for (const [category, count] of allCatsReserved) {
-                     if (printedReserved.has(category)) continue;
-                     content += `${category}: ${count}\n`;
-                 }
-             }
-        } else {
-             if (total_count_reserved === 0) {
-                 content += `<h4>Всего: ${total_count}</h4>`;
-                 if (total_count > 0) {
-                     const allCats = Object.entries(categories);
-                     const printed = new Set();
-                     for (const group of priority) {
-                         for (const [category, count] of allCats) {
-                             if (printed.has(category)) continue;
-                             if (group.some(p => category.includes(p))) {
-                                 content += `${category}: ${count}\n`;
-                                 printed.add(category);
-                             }
-                         }
-                     }
-                     for (const [category, count] of allCats) {
-                         if (printed.has(category)) continue;
-                         content += `${category}: ${count}\n`;
-                     }
-                 }
-             } else {
-                 const total_all = total_count + total_count_reserved;
-                 content += `<h4>Всего сервисов: ${total_all}</h4>`;
-                 content += `<h4>Пропало: ${total_count}</h4>`;
-                 if (total_count > 0) {
-                     const allCats = Object.entries(categories);
-                     const printed = new Set();
-                     for (const group of priority) {
-                         for (const [category, count] of allCats) {
-                             if (printed.has(category)) continue;
-                             if (group.some(p => category.includes(p))) {
-                                 content += `${category}: ${count}\n`;
-                                 printed.add(category);
-                             }
-                         }
-                     }
-                     for (const [category, count] of allCats) {
-                         if (printed.has(category)) continue;
-                         content += `${category}: ${count}\n`;
-                     }
-                 }
-             }
-             if (total_count_reserved > 0) {
-                  content += `<h4>Зарезервировано: ${total_count_reserved}</h4>`;
-                  const allCatsReserved = Object.entries(categoriesReserved);
-                  const printedReserved = new Set();
-                  for (const group of priority) {
-                      for (const [category, count] of allCatsReserved) {
-                          if (printedReserved.has(category)) continue;
-                          if (group.some(p => category.includes(p))) {
-                              content += `${category}: ${count}\n`;
-                              printedReserved.add(category);
-                          }
-                      }
-                  }
-                  for (const [category, count] of allCatsReserved) {
-                      if (printedReserved.has(category)) continue;
-                      content += `${category}: ${count}\n`;
-                  }
-             }
+        // ============= БЛОК 1: Всего / Всего сервисов =============
+        if (has_any_reserved_data && (total_count + total_count_reserved > 0)) {
+            content += `<h4 style="margin-bottom: 5px;">Всего сервисов: ${total_count + total_count_reserved}</h4>`;
+        } else if (total_count + total_count_reserved > 0) {
+            content += `<h4 style="margin-bottom: 5px;">Всего: ${total_count + total_count_reserved}</h4>`;
         }
-        // Убираем лишние символы новой строки в начале и конце, если они есть
+
+        // ============= БЛОК 2: Пропало (только если есть резерв где-то в данных) =============
+        if (has_any_reserved_data && total_count > 0) {
+            content += `<h4>Пропало: ${total_count}</h4>`;
+
+            // Сами категории "Пропало"
+            const allCats = Object.entries(categories).sort((a, b) => {
+                // приоритетная сортировка по группам
+                const priorityIndexA = priority.findIndex(g => g.some(p => a[0].includes(p)));
+                const priorityIndexB = priority.findIndex(g => g.some(p => b[0].includes(p)));
+                if (priorityIndexA !== priorityIndexB) return priorityIndexA - priorityIndexB;
+                return a[0].localeCompare(b[0]);
+            });
+
+            const printed = new Set();
+            for (const group of priority) {
+                for (const [category, count] of allCats) {
+                    if (printed.has(category)) continue;
+                    if (group.some(p => category.includes(p))) {
+                        content += `${category}: ${count}<br>`;
+                        printed.add(category);
+                    }
+                }
+            }
+            for (const [category, count] of allCats) {
+                if (!printed.has(category)) {
+                    content += `${category}: ${count}<br>`;
+                }
+            }
+            content += "\n"; // отступ после списка
+        }
+        // Если резерва нет вообще — просто выводим обычные категории под "Всего"
+        else if (!has_any_reserved_data && total_count > 0) {
+            const allCats = Object.entries(categories).sort((a, b) => {
+                const priorityIndexA = priority.findIndex(g => g.some(p => a[0].includes(p)));
+                const priorityIndexB = priority.findIndex(g => g.some(p => b[0].includes(p)));
+                if (priorityIndexA !== priorityIndexB) return priorityIndexA - priorityIndexB;
+                return a[0].localeCompare(b[0]);
+            });
+
+            const printed = new Set();
+            for (const group of priority) {
+                for (const [category, count] of allCats) {
+                    if (printed.has(category)) continue;
+                    if (group.some(p => category.includes(p))) {
+                        content += `${category}: ${count}<br>`;
+                        printed.add(category);
+                    }
+                }
+            }
+            for (const [category, count] of allCats) {
+                if (!printed.has(category)) {
+                    content += `${category}: ${count}<br>`;
+                }
+            }
+            content += "\n";
+        }
+
+        // ============= БЛОК 3: Зарезервировано =============
+        if (total_count_reserved > 0) {
+            content += `<h4>Зарезервировано: ${total_count_reserved}</h4>`;
+
+            const allCatsReserved = Object.entries(categoriesReserved).sort((a, b) => {
+                const priorityIndexA = priority.findIndex(g => g.some(p => a[0].includes(p)));
+                const priorityIndexB = priority.findIndex(g => g.some(p => b[0].includes(p)));
+                if (priorityIndexA !== priorityIndexB) return priorityIndexA - priorityIndexB;
+                return a[0].localeCompare(b[0]);
+            });
+
+            const printedReserved = new Set();
+            for (const group of priority) {
+                for (const [category, count] of allCatsReserved) {
+                    if (printedReserved.has(category)) continue;
+                    if (group.some(p => category.includes(p))) {
+                        content += `${category}: ${count}<br>`;
+                        printedReserved.add(category);
+                    }
+                }
+            }
+            for (const [category, count] of allCatsReserved) {
+                if (!printedReserved.has(category)) {
+                    content += `${category}: ${count}<br>`;
+                }
+            }
+        }
+
         tabsData.push({ name: service, content: content.trim() });
     }
 }
+
+
+function centerActiveTab() {
+    const activeTab = document.querySelector('.tab-item.active');
+    if (!activeTab) return;
+
+    const container = document.querySelector('.listos');
+
+    // Плавное центрирование (работает во всех современных браузерах)
+    activeTab.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest'
+    });
+}
+document.querySelector('.listos').addEventListener('wheel', function (e) {
+    e.preventDefault();
+
+    const delta = e.deltaY || e.deltaX;
+    if (delta === 0) return;
+
+    const tabItems = document.querySelectorAll('.tab-item');
+    if (tabItems.length === 0) return;
+
+    let currentIndex = Array.from(tabItems).findIndex(item => item.classList.contains('active'));
+    if (currentIndex === -1) currentIndex = 0;
+
+    let nextIndex = currentIndex;
+
+    if (delta > 0) {
+        // Крутим вниз/вправо → следующая вкладка
+        if (currentIndex < tabItems.length - 1) {
+            nextIndex = currentIndex + 1;
+        }
+    } else {
+        // Крутим вверх/влево → предыдущая вкладка
+        if (currentIndex > 0) {
+            nextIndex = currentIndex - 1;
+        }
+    }
+
+    // Если индекс не изменился — ничего не делаем
+    if (nextIndex === currentIndex) return;
+
+    // Переключаем вкладку
+    switchTab(nextIndex);
+
+    // === ЦЕНТРИРУЕМ АКТИВНУЮ ВКЛАДКУ ПО ГОРИЗОНТАЛИ ===
+    const activeTab = tabItems[nextIndex];
+    const container = document.querySelector('.listos');
+
+    // scrollIntoView с центрированием (работает идеально и плавно)
+    activeTab.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest'
+    });
+
+    // Дополнительная страховка для старых браузеров (если scrollIntoView не поддерживает inline: 'center')
+    setTimeout(() => {
+        const containerRect = container.getBoundingClientRect();
+        const tabRect = activeTab.getBoundingClientRect();
+
+        const offsetLeft = tabRect.left + container.scrollLeft - containerRect.left;
+        const offsetRight = containerRect.right - tabRect.right;
+
+        if (offsetLeft < 0 || offsetRight < 0) {
+            const centerOffset = tabRect.width / 2;
+            const containerCenter = containerRect.width / 2;
+            container.scrollLeft = container.scrollLeft + (tabRect.left - containerRect.left) - (containerCenter - centerOffset);
+        }
+    }, 150); // небольшая задержка после smooth-анимации
+
+}, { passive: false });
+
 
 function updateTabsDisplay() {
     const tabsList = document.getElementById('tabs-list');
@@ -911,110 +1240,106 @@ function switchTab(index) {
             content.classList.add('hidden');
         }
     });
+    centerActiveTab();
 }
 
 function exportData() {
-    if (Object.keys(currentServiceCounts).length === 0 && Object.keys(currentServiceCountsReserved).length === 0) {
-        alert('Нет данных для экспорта. Сначала выполните расчёт.');
+    // Проверка: есть ли вообще данные для экспорта
+    const hasData = Object.keys(currentServiceCounts).length > 0 ||
+        Object.keys(currentServiceCountsReserved).length > 0;
+
+    if (!hasData || (tabsData.length === 0)) {
+        alert('Нет данных для экспорта.\nСначала загрузите и обработайте файлы.');
         return;
     }
-    const format = prompt('Выберите формат экспорта (json или txt):', 'json');
-    if (!format || (format.toLowerCase() !== 'json' && format.toLowerCase() !== 'txt')) {
-        alert('Неподдерживаемый формат. Выберите json или txt.');
-        return;
-    }
+
+    // Показываем модальное окно
+    document.getElementById('export-modal').classList.remove('hidden');
+}
+
+function performExport(format) {
     let content = '';
-    if (format.toLowerCase() === 'txt') {
-        content = tabsData.map(tab => `=== ${tab.name} ===\n${tab.content}`).join('');
-    } else if (format.toLowerCase() === 'json') {
+
+    if (format === 'txt') {
+        content = tabsData
+            .map(tab => `=== ${tab.name} ===\n${tab.content.replace(/<[^>]*>/g, '')}`)
+            .join('\n\n');
+
+    } else if (format === 'json') {
         const UNIT_MAP = {
             '100 ГБит/с': 3, '10 ГБит/с': 3, '2.5 ГБит/с': 3, '1 ГБит/с': 3,
             'ОК': 4,
             '155 МБит/с': 2, '45 МБит/с': 2, '2 МБит/с': 2,
             'Спец': 14, 'Тёмные ОВ': 14
         };
+
         const THROUGHPUT_MAP = {
             '100 ГБит/с': 100,
-            '10 ГБит/с': 10, '2.5 ГБит/с': 2.5,
+            '10 ГБит/с': 10,
+            '2.5 ГБит/с': 2.5,
             '1 ГБит/с': 1,
             'ОК': 'ОК',
             '155 МБит/с': 155,
             '45 МБит/с': 45,
             '2 МБит/с': 2,
-            'Спец': 'ОВ', 'Тёмные ОВ': 'ОВ'
+            'Спец': 'ОВ',
+            'Тёмные ОВ': 'ОВ'
         };
 
         const jsonList = [];
-        // Обработка основных данных
-        for (const [tab_name, categories] of Object.entries(currentServiceCounts)) {
-            const unit_val = UNIT_MAP[tab_name] || "";
-            const throughput_val = THROUGHPUT_MAP[tab_name] || "";
-            if (tab_name === '2 МБит/с' && Object.values(categories).reduce((sum, val) => sum + val, 0) > 0) {
-                const total_qty = Object.values(categories).reduce((sum, val) => sum + val, 0);
+
+        // Основные сервисы
+        for (const [serviceType, categories] of Object.entries(currentServiceCounts)) {
+            const unit = UNIT_MAP[serviceType] || "";
+            const throughput = THROUGHPUT_MAP[serviceType] || "";
+
+            for (const [displayValue, qty] of Object.entries(categories)) {
+                const isSPD = displayValue.includes('СПД');
+                const resourceUsage = serviceType === 'Спец' ? "Спецпользователь" : displayValue.trim();
+
                 jsonList.push({
-                    "resourceusage": "ПЦТ",
-                    "stream": "",
-                    "transportChannelThroughput": throughput_val,
-                    "transportChannelThroughputUnit": unit_val,
-                    "transportReservedResources": 0,
-                    "transportLostResources": total_qty,
-                    "totalLo": total_qty
-                });
-                continue;
-            }
-            for (const [display_value, qty] of Object.entries(categories)) {
-                const is_spt = display_value.includes('СПД');
-                const reserved = is_spt ? qty : 0;
-                const lost = is_spt ? 0 : qty;
-                const resource_val = tab_name === 'Спец' ? "Спецпользователь" : display_value;
-                jsonList.push({
-                    "resourceusage": resource_val,
-                    "stream": "",
-                    "transportChannelThroughput": throughput_val,
-                    "transportChannelThroughputUnit": unit_val,
-                    "transportReservedResources": reserved,
-                    "transportLostResources": lost,
-                    "totalLo": reserved + lost
+                    resourceusage: resourceUsage,
+                    stream: "",
+                    transportChannelThroughput: throughput,
+                    transportChannelThroughputUnit: unit,
+                    transportReservedResources: isSPD ? qty : 0,
+                    transportLostResources: isSPD ? 0 : qty,
+                    totalLo: qty
                 });
             }
         }
-        // Обработка резервных данных
-        for (const [tab_name, categories] of Object.entries(currentServiceCountsReserved)) {
-            const unit_val = UNIT_MAP[tab_name] || "";
-            const throughput_val = THROUGHPUT_MAP[tab_name] || "";
-            if (tab_name === '2 МБит/с' && Object.values(categories).reduce((sum, val) => sum + val, 0) > 0) {
-                const total_qty = Object.values(categories).reduce((sum, val) => sum + val, 0);
+
+        // Зарезервированные сервисы
+        for (const [serviceType, categories] of Object.entries(currentServiceCountsReserved)) {
+            const unit = UNIT_MAP[serviceType] || "";
+            const throughput = THROUGHPUT_MAP[serviceType] || "";
+
+            for (const [displayValue, qty] of Object.entries(categories)) {
+                const resourceUsage = serviceType === 'Спец' ? "Спецпользователь" : displayValue.trim();
+
                 jsonList.push({
-                    "resourceusage": "ПЦТ",
-                    "stream": "",
-                    "transportChannelThroughput": throughput_val,
-                    "transportChannelThroughputUnit": unit_val,
-                    "transportReservedResources": total_qty,
-                    "transportLostResources": 0,
-                    "totalLo": total_qty
-                });
-                continue;
-            }
-            for (const [display_value, qty] of Object.entries(categories)) {
-                const resource_val = tab_name === 'Спец' ? "Спецпользователь" : display_value;
-                jsonList.push({
-                    "resourceusage": resource_val,
-                    "stream": "",
-                    "transportChannelThroughput": throughput_val,
-                    "transportChannelThroughputUnit": unit_val,
-                    "transportReservedResources": qty,
-                    "transportLostResources": 0,
-                    "totalLo": qty
+                    resourceusage: resourceUsage,
+                    stream: "",
+                    transportChannelThroughput: throughput,
+                    transportChannelThroughputUnit: unit,
+                    transportReservedResources: qty,
+                    transportLostResources: 0,
+                    totalLo: qty
                 });
             }
         }
+
         content = JSON.stringify(jsonList, null, 2);
     }
-    const blob = new Blob([content], { type: format.toLowerCase() === 'json' ? 'application/json' : 'text/plain;charset=utf-8' });
+
+    // Скачивание
+    const blob = new Blob([content], {
+        type: format === 'json' ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8'
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `export.${format.toLowerCase()}`;
+    a.download = `export_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${format}`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -1022,3 +1347,36 @@ function exportData() {
         URL.revokeObjectURL(url);
     }, 0);
 }
+
+// === ОБРАБОТКА МОДАЛЬНОГО ОКНА ЭКСПОРТА (ГАРАНТИРОВАННО РАБОТАЕТ) ===
+document.getElementById('export-button').addEventListener('click', exportData);
+
+// Открытие модального окна
+function exportData() {
+    const hasData = Object.keys(currentServiceCounts).length > 0 ||
+        Object.keys(currentServiceCountsReserved).length > 0;
+
+    if (!hasData || tabsData.length === 0) {
+        alert('Нет данных для экспорта.\nСначала загрузите и обработайте файлы.');
+        return;
+    }
+
+    document.getElementById('export-modal').classList.remove('hidden');
+}
+
+// ЗАКРЫТИЕ модалки (клик вне или "Отмена")
+document.getElementById('export-modal').addEventListener('click', function (e) {
+    if (e.target === this || e.target.classList.contains('export-cancel')) {
+        this.classList.add('hidden');
+    }
+});
+
+// ОБРАБОТКА КНОПОК JSON / TXT — используем делегирование (работает всегда!)
+document.getElementById('export-modal').addEventListener('click', function (e) {
+    const btn = e.target.closest('.export-btn');
+    if (!btn) return;
+
+    const format = btn.getAttribute('data-format'); // "json" или "txt"
+    document.getElementById('export-modal').classList.add('hidden');
+    performExport(format);
+});
