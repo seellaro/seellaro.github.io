@@ -1087,30 +1087,39 @@ function generateTabsContent(serviceCounts, serviceCountsReserved) {
 
         // ============= БЛОК 3: Зарезервировано =============
        
+        const isLTTab = loadedFilesInfo.some(f => f.detectedType === 'lt');
+
+        if (isLTTab) {
+            // Для ЛТ всегда показываем блок "Зарезервировано", даже если 0
             content += `<h4>Зарезервировано: ${total_count_reserved}</h4>`;
-
-            const allCatsReserved = Object.entries(categoriesReserved).sort((a, b) => {
-                const priorityIndexA = priority.findIndex(g => g.some(p => a[0].includes(p)));
-                const priorityIndexB = priority.findIndex(g => g.some(p => b[0].includes(p)));
-                if (priorityIndexA !== priorityIndexB) return priorityIndexA - priorityIndexB;
-                return a[0].localeCompare(b[0]);
-            });
-
-            const printedReserved = new Set();
-            for (const group of priority) {
+        
+            // Если есть зарезервированные — выводим список
+            if (total_count_reserved > 0) {
+                const allCatsReserved = Object.entries(categoriesReserved).sort((a, b) => {
+                    const priorityIndexA = priority.findIndex(g => g.some(p => a[0].includes(p)));
+                    const priorityIndexB = priority.findIndex(g => g.some(p => b[0].includes(p)));
+                    if (priorityIndexA !== priorityIndexB) return priorityIndexA - priorityIndexB;
+                    return a[0].localeCompare(b[0]);
+                });
+        
+                const printedReserved = new Set();
+                for (const group of priority) {
+                    for (const [category, count] of allCatsReserved) {
+                        if (printedReserved.has(category)) continue;
+                        if (group.some(p => category.includes(p))) {
+                            content += `${category}: ${count}<br>`;
+                            printedReserved.add(category);
+                        }
+                    }
+                }
                 for (const [category, count] of allCatsReserved) {
-                    if (printedReserved.has(category)) continue;
-                    if (group.some(p => category.includes(p))) {
+                    if (!printedReserved.has(category)) {
                         content += `${category}: ${count}<br>`;
-                        printedReserved.add(category);
                     }
                 }
             }
-            for (const [category, count] of allCatsReserved) {
-                if (!printedReserved.has(category)) {
-                    content += `${category}: ${count}<br>`;
-                }
-            }
+            // Если total_count_reserved === 0 — просто "Зарезервировано: 0" без списка
+        }
         
 
         tabsData.push({ name: service, content: content.trim() });
@@ -1380,4 +1389,5 @@ document.getElementById('export-modal').addEventListener('click', function (e) {
     document.getElementById('export-modal').classList.add('hidden');
     performExport(format);
 });
+
 
