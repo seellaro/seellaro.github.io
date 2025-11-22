@@ -1275,7 +1275,7 @@ function performExport(format) {
             .map(tab => {
                 // 1. Убираем все HTML-теги (<h4>, <br> и т.д.)
                 let text = tab.content
-                    .replace(/<\/?h4[^>]*>/gi, '')     // убираем <h4>
+                    .replace(/<\/?h4[^>]*>/gi, '\n')     // убираем <h4>
                     .replace(/<br\s*\/?>/gi, '\n')     // <br> → перенос строки
                     .replace(/&nbsp;/gi, ' ')          // на всякий случай
 
@@ -1408,6 +1408,7 @@ document.getElementById('export-modal').addEventListener('click', function (e) {
     document.getElementById('export-modal').classList.add('hidden');
     performExport(format);
 });
+
 
 
 
