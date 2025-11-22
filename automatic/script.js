@@ -1086,7 +1086,7 @@ function generateTabsContent(serviceCounts, serviceCountsReserved) {
         }
 
         // ============= БЛОК 3: Зарезервировано =============
-        if (total_count_reserved > 0) {
+       
             content += `<h4>Зарезервировано: ${total_count_reserved}</h4>`;
 
             const allCatsReserved = Object.entries(categoriesReserved).sort((a, b) => {
@@ -1111,7 +1111,7 @@ function generateTabsContent(serviceCounts, serviceCountsReserved) {
                     content += `${category}: ${count}<br>`;
                 }
             }
-        }
+        
 
         tabsData.push({ name: service, content: content.trim() });
     }
@@ -1380,3 +1380,4 @@ document.getElementById('export-modal').addEventListener('click', function (e) {
     document.getElementById('export-modal').classList.add('hidden');
     performExport(format);
 });
+
