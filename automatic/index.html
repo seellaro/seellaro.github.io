@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <!-- Используем библиотеку SheetJS для чтения Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
+
 <body>
     <div class="container">
         <!-- Панель управления (цвета, темы) -->
@@ -25,25 +27,47 @@
             </div>
         </div>
 
-       <div class="main-content">
-        <div class="main-buttons">
-            <button id="lp-button">Загрузка ЛП</button>
-            <button id="lt-button">Загрузка ЛТ</button>
-            <button id="cbd-button">Загрузка ЦБД</button>
-            <button id="export-button">Экспорт в файл</button>
+        <div class="main-content">
+            <div class="main-buttons">
+                <!-- Одна универсальная кнопка -->
+                <button id="universal-load-button">Загрузка файлов</button>
+                <button id="export-button">Экспорт в файл</button>
+
+            </div>
+            <div id="context-menu" class="context-menu">
+                <div class="menu-item" data-mode="auto">Автоопределение (по умолчанию)</div>
+                <div class="menu-item" data-mode="lp">Только ЛП</div>
+                <div class="menu-item" data-mode="lt">Только ЛТ</div>
+                <div class="menu-item" data-mode="cbd">Только ЦБД</div>
+            </div>
+
+            <div class="tabs-container">
+                <div class="listos">
+                    <div class="tabs-list" id="tabs-list"></div>
+                </div>
+                <div class="tabs-content" id="tabs-content"></div>
+            </div>
+
+            <div id="export-modal" class="export-modal hidden">
+                <div class="export-modal-content">
+                    <h3>Выберите формат экспорта</h3>
+                    <div class="export-buttons">
+                        <button class="export-btn json-btn" data-format="json">JSON</button>
+                        <button class="export-btn txt-btn" data-format="txt">TXT</button>
+                    </div>
+                    <button class="export-cancel">Отмена</button>
+                </div>
+            </div>
+
+
+            <div class="status-bar">
+                <span>Версия: 8.0</span>
+            </div>
         </div>
 
-        <div class="tabs-container">
-            <div class="listos"><div class="tabs-list" id="tabs-list"></div></div>
-            <div class="tabs-content" id="tabs-content"></div>
-        </div>
-
-        <div class="status-bar">
-            <span>Версия: 8.0</span>
-        </div>
-    </div>
     </div>
     <script src="script.js"></script>
     <script src="theme.js"></script>
 </body>
+
 </html>
