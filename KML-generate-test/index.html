@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Генератор KML</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="style/style.css">
+    <link rel="icon" href="style/favicon.ico" type="image/x-icon">
+    <script src="https://api-maps.yandex.ru/v3/?apikey=934e2f4b-ae2b-4378-b7a7-02d69153f931&lang=ru_RU" type="text/javascript"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+
+    <div id="container">
+        <div class="fro">
+            <div class="main">
+                <h1>Генератор KML</h1>
+                <div id="drop_zone">Перетащите сюда KML файл для загрузки</div>
+                <div class="form-section">
+                    <label for="mapName">Название карты:</label>
+                    <input type="text" id="mapName" placeholder="Введите название карты">
+                </div>
+                <div class="form-section">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label>Точки:</label>
+                        <button id="sortPointsButton"
+                            style="display: none; padding: 4px 8px; font-size: 12px;">Отсортировать</button>
+                    </div>
+                    <div id="pointsContainer" class="points-container">
+
+                    </div>
+                    <div class="add-btn">
+                        <button id="addPointButton">Добавить точку</button>
+                        <button id="quickAddButton">Быстрое добавление</button>
+                    </div>
+                </div>
+            </div>
+            <div class="map" id="map">
+                <div id="totalDistance">Общее расстояние: 0 км</div>
+            </div>
+        </div>
+        <div class="buttons">
+            <div class="btn">
+                <button id="toggleThemeButton">Тема</button>
+                <button id="loadWellsButton">Загрузить колодцы</button>
+                <button id="historyButton">История</button>
+            </div>
+            <div class="actions">
+                <button id="clearButton">Очистить все</button>
+                <button id="generateKMLButton">Сгенерировать KML</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="quickAddModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Быстрое добавление колодца
+                <button id="quickAddClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="quickAddSearch" placeholder="Поиск колодца...">
+                <div id="quickAddWellList" class="well-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="startPointModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Выберите начальную точку
+                <button id="startPointClose" class="close-modal">✕</button>
+            </div>
+            <div class="sub-header" id="mapNameSub"></div>
+            <div class="modal-body">
+                <div id="startPointList" class="well-list"></div>
+            </div>
+        </div>
+    </div>
+    <div id="startPointModalBackdrop" class="modal-backdrop"></div>
+
+    <div id="wellsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Загрузка колодцев
+                <div class="btns">
+
+                    <button id="wellsModalClose" class="close-modal">✕</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <!-- Список файлов (по умолчанию скрыт) -->
+                <div id="wellsFileList" class="well-list" style="display: none;">
+                    <!-- Список файлов будет загружен сюда через JS -->
+                </div>
+                <!-- Drop Zone (по умолчанию видим) -->
+                <div id="wellsDropZone" class="drop_zone">
+                    Перетащите сюда XLSX файл с колодцами <br> Желательно содержащий только: Название, lat, long.
+                </div>
+                <div id="loadingAnimation" style="display: none; text-align: center; margin: 20px;">
+                    <div class="spinner"></div>
+                    <div id="progressText">Обработка: 0%</div>
+                    <div id="progressBar"
+                        style="width: 100%; height: 10px; background-color: #cccccc47; border-radius: 5px; overflow: hidden;">
+                        <div id="progressFill"
+                            style="width: 0%; height: 100%; background-color: #4a91e25b; transition: width 0.2s ease-out;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="wellsModalBackdrop" class="modal-backdrop"></div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                История сохраненных карт
+                <div class="btns">
+                    <button id="clearHistoryButton" class="clear-history">🗑</button>
+                    <button id="historyModalClose" class="close-modal">✕</button>
+                </div>
+            </div>
+            <div class="modal-body">
+
+                <div id="historyList" class="well-list"></div>
+            </div>
+        </div>
+    </div>
+    <div id="historyModalBackdrop" class="modal-backdrop"></div>
+    <div id="lineChoiceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Загрузка KML
+                <button id="lineChoiceClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 20px;">
+                <p>Как загрузить точки?</p>
+                <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+                    <button id="loadWithLinesBtn" class="btn">С линиями</button>
+                    <button id="loadWithoutLinesBtn" class="btn">Без линий</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="lineChoiceModalBackdrop" class="modal-backdrop"></div>
+    <div id="whatsNewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Что нового
+                <button id="whatsNewClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="whatsNewList">
+                    <ul>
+                        <li>
+                            <h3>Новое окно</h3>
+                            <p>Двойное нажатие по "Генератор KML" открывает окно с дополнительными настройками(в
+                                дальнейшем будет пополнятся)</p>
+                        </li>
+
+                        <li>
+                            <h3>Добавлена возможность полной отчистки данных</h3>
+                        </li>
+                        <li>
+                            <h3>Добавление точек из Аргуса</h3>
+
+                            <p>Для добавления точек (колодцев, шкафов, опор и других объектов с координатами) из Аргуса выполните следующие шаги:</p>
+                            
+                            <ol>
+                            <li>Откройте новое окно браузера и перейдите на страницу управления расширениями (в Chrome — введите <code>chrome://extensions</code> в адресную строку).</li>
+                            <li>Включите <strong>режим разработчика</strong>, переместив переключатель в правом верхнем углу в положение <em>ВКЛ</em>.</li>
+                            <li>Нажмите кнопку <strong>«Загрузить расширение»</strong> и выберите скачанный ZIP-архив расширения.
+                            <em>Не извлекайте архив — выбирайте сам файл .zip.</em></li>
+                            <li>После успешной установки расширения, перейдите на карту магистрали в Аргусе.</li>
+                            <li><strong>Выбирите и дважды кликните</strong> по названию или карточке объекта (колодец, шкаф, опора и т.п.), у которого есть указанные координаты.</li>
+                            
+                            <li>После двойного клика данные объекта автоматически добавятся в список.</li>
+                            </ol>
+                            </p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="whatsNewModalBackdrop" class="modal-backdrop"></div>
+    <div id="advancedModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Дополнительно
+                <button id="advancedClose" class="close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="advancedOptionsList" class="well-list">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="advancedModalBackdrop" class="modal-backdrop"></div>
+    
+    <script src="script/theme.js"></script>
+    <script src="script/opener-kml.js"></script>
+    <script src="script/main.js"></script>
+    <script src="script/whatsnew.js"></script>
+</body>
+
+</html>
