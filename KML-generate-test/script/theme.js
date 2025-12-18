@@ -27,23 +27,28 @@ document.addEventListener('DOMContentLoaded', function () {
         return colors1.map((color1, index) => interpolateColor(color1, colors2[index], factor));
     }
 
+    // Инициализация темы при загрузке
     const storedTheme = localStorage.getItem(THEME_KEY);
-    const isDark = storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
+
     document.body.classList.toggle('dark-theme', isDark);
     setBackground(isDark ? darkColors : lightColors);
+
+    // Элемент карты (уже объявлен в main.js)
+    const mapElement = document.getElementById('map');
 
     function toggleTheme() {
         const isDark = document.body.classList.contains('dark-theme');
         const startColors = isDark ? darkColors : lightColors;
         const endColors = isDark ? lightColors : darkColors;
-        const duration = 500;
-        const fadeDuration = 250;
+        const duration = 500;      // длительность анимации фона
+        const fadeDuration = 250;  // длительность fade карты
         const startTime = performance.now();
         const newIsDark = !isDark;
 
-        const { map, baseLayer, pointLayer, lineLayer, buildingLayer, getPointStyle, getLineStyle, getBuildingStyle, mapElement } = window.kmlGenerator;
-
-        map.getInteractions().forEach(interaction => interaction.setActive(false));
+        // Отключаем pointer-events на контейнере карты во время анимации
+        mapElement.style.pointerEvents = 'none';
 
         const fadeOut = function animateFadeOut(currentTime) {
             const elapsed = currentTime - startTime;
@@ -54,16 +59,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (factor < 1) {
                 requestAnimationFrame(animateFadeOut);
             } else {
+                // Меняем класс темы и сохраняем в localStorage
                 document.body.classList.toggle('dark-theme');
                 localStorage.setItem(THEME_KEY, newIsDark ? 'dark' : 'light');
 
-                baseLayer.setSource(new ol.source.XYZ({
-                    url: newIsDark ? 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                    attributions: '© CartoDB'
-                }));
-                pointLayer.setStyle(getPointStyle);
-                lineLayer.setStyle(getLineStyle);
-                buildingLayer.setStyle(getBuildingStyle);
+                // Меняем тему схемы Яндекса
+                if (window.schemeLayer) {
+                    window.schemeLayer.update({ theme: newIsDark ? 'dark' : 'light' });
+                }
+
+                // Здесь позже будем обновлять стили точек и линий (этапы 6+)
 
                 const fadeInStartTime = performance.now();
                 const fadeIn = function animateFadeIn(currentTime) {
@@ -80,15 +85,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (factor < 1 || bgFactor < 1) {
                         requestAnimationFrame(fadeIn);
                     } else {
-                        map.getInteractions().forEach(interaction => interaction.setActive(true));
-                        map.render();
+                        // Включаем обратно pointer-events
+                        mapElement.style.pointerEvents = 'auto';
                     }
-                }
+                };
                 requestAnimationFrame(fadeIn);
             }
-        }
+        };
         requestAnimationFrame(fadeOut);
     }
 
+    // Кнопка переключения темы
     document.getElementById('toggleThemeButton').addEventListener('click', toggleTheme);
 });
