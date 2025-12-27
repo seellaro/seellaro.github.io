@@ -93,6 +93,7 @@ body.dark-theme input[type="text"] {
 }
 
 .main {
+    height: 750px;
     padding-right: 4px;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -104,7 +105,9 @@ body.dark-theme input[type="text"] {
     width: 48%;
     min-width: 400px;
 }
-
+.main h1 {
+    cursor: pointer;
+}
 .point-row {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -154,6 +157,13 @@ body.dark-theme .point-row.active {
     -webkit-transition: background-color 0.1s ease-out;
     transition: background-color 0.1s ease-out;
 }
+.point-row.active:hover {
+    background-color: rgba(145, 211, 255, 0.18);
+}
+body.dark-theme .point-row.active:hover {
+    background-color: rgba(42, 74, 106, 0.29);
+}
+
 
 body.dark-theme .point-row:hover {
     background-color: rgba(42, 74, 106, 0.2);
@@ -193,18 +203,19 @@ body.dark-theme .drag-handle {
 }
 
 .point-row.dragging {
-    opacity: 0.7;
-    background-color: rgba(145, 211, 255, 0.29);
+    opacity: 0.8;
+    background-color: rgba(145, 211, 255, 0.30);
     -webkit-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     position: absolute;
     z-index: 1000;
     -webkit-transition: -webkit-transform 0.2s ease-out;
     transition: transform 0.2s ease-out;
+    backdrop-filter: blur(20px);
 }
 
 body.dark-theme .point-row.dragging {
-    background-color: rgba(42, 74, 106, 0.29);
+    background-color: rgba(42, 74, 106, 0.30);
     -webkit-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
@@ -218,7 +229,7 @@ body.dark-theme .point-row.drag-over {
 }
 
 .point-row-placeholder {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.020);
     border-radius: 20px;
     margin-bottom: 5px;
     -webkit-transition: all 0.2s ease-out;
@@ -226,7 +237,7 @@ body.dark-theme .point-row.drag-over {
 }
 
 body.dark-theme .point-row-placeholder {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.020);
 }
 
 button {
@@ -260,10 +271,11 @@ body.dark-theme button:hover {
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
+    gap: 6px;
 }
 
 .add-btn button {
-    margin: 6px;
+    
     background-color: rgba(255, 255, 255, 0.16);
     color: rgba(49, 49, 49, 0.8);
     margin-top: 6px;
@@ -343,6 +355,7 @@ body.dark-theme .btn button {
 }
 
 input#mapName {
+    margin-top: 10px;
     width: 100%;
     background-color: rgba(255, 255, 255, 0.09);
     -webkit-transition: background-color 0.5s ease-out;
@@ -426,7 +439,7 @@ body.dark-theme .removePointButton:hover {
 
 #pointsContainer {
     padding: 8px;
-    height: 400px;
+    height: 490px;
     border-radius: 30px;
     overflow-y: scroll;
     -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.123);
@@ -1156,4 +1169,88 @@ body.dark-theme #whatsNewList li {
 #whatsNewModal p,h3,ul {
     margin: 2px;
     padding: 0;
+}
+
+#globalDropOverlay {
+    transition: background-color .2s;
+    border-radius: 100px;
+    z-index: 9999;  
+    outline: 4px dashed #00d3f8;
+    outline-offset: -40px;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;             /* выше всего */
+    pointer-events: none;        /* не мешает кликам */
+    background: transparent;
+    backdrop-filter: blur(20px);
+    transition: opacity .25s ease;
+    opacity: 0;
+}
+
+body.global-drop-hover #globalDropOverlay {
+    opacity: 1;
+    pointer-events: all;         /* чтобы перехватить drop */
+}
+#globalDropOverlay{
+    text-align: center;
+    align-content: center;
+}
+.spinner-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,.75);
+    backdrop-filter: blur(8px);
+    z-index: 3000;
+    display: none;          /* показываем только во время парсинга */
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+  body.dark-theme .spinner-overlay { background: rgba(0,0,0,.65); }
+  
+  .spinner-overlay.show { display: flex; }
+  
+  .spinner {                /* тот же спиннер, что уже есть в проекте */
+    width: 36px;
+    height: 36px;
+    border: 4px solid #ccc;
+    border-top-color: #4a90e2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  .spinner-text {
+    font-size: 14px;
+    color: #333;
+  }
+  body.dark-theme .spinner-text { color: #ddd; }
+  .notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    z-index: 10000;
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.hide {
+    opacity: 0;
+    transform: translateY(20px);
 }
