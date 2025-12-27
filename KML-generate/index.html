@@ -9,7 +9,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script> 
+    <script src="script/main.js"></script>
+    <script src="script/theme.js"></script>
+    <script src="script/opener-kml.js"></script>
+    <script src="script/whatsnew.js"></script>
 </head>
 
 <body>
@@ -18,7 +23,7 @@
         <div class="fro">
             <div class="main">
                 <h1>Генератор KML</h1>
-                <div id="drop_zone">Перетащите сюда KML файл для загрузки</div>
+                
                 <div class="form-section">
                     <label for="mapName">Название карты:</label>
                     <input type="text" id="mapName" placeholder="Введите название карты">
@@ -46,7 +51,7 @@
         <div class="buttons">
             <div class="btn">
                 <button id="toggleThemeButton">Тема</button>
-                <button id="loadWellsButton">Загрузить колодцы</button>
+                <button id="loadWellsButton">Загрузить</button>
                 <button id="historyButton">История</button>
             </div>
             <div class="actions">
@@ -83,37 +88,7 @@
     </div>
     <div id="startPointModalBackdrop" class="modal-backdrop"></div>
 
-    <div id="wellsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                Загрузка колодцев
-                <div class="btns">
-
-                    <button id="wellsModalClose" class="close-modal">✕</button>
-                </div>
-            </div>
-            <div class="modal-body">
-                <!-- Список файлов (по умолчанию скрыт) -->
-                <div id="wellsFileList" class="well-list" style="display: none;">
-                    <!-- Список файлов будет загружен сюда через JS -->
-                </div>
-                <!-- Drop Zone (по умолчанию видим) -->
-                <div id="wellsDropZone" class="drop_zone">
-                    Перетащите сюда XLSX файл с колодцами <br> Желательно содержащий только: Название, lat, long.
-                </div>
-                <div id="loadingAnimation" style="display: none; text-align: center; margin: 20px;">
-                    <div class="spinner"></div>
-                    <div id="progressText">Обработка: 0%</div>
-                    <div id="progressBar"
-                        style="width: 100%; height: 10px; background-color: #cccccc47; border-radius: 5px; overflow: hidden;">
-                        <div id="progressFill"
-                            style="width: 0%; height: 100%; background-color: #4a91e25b; transition: width 0.2s ease-out;">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    
     <div id="wellsModalBackdrop" class="modal-backdrop"></div>
 
     <div id="historyModal" class="modal">
@@ -150,42 +125,6 @@
     <div id="lineChoiceModalBackdrop" class="modal-backdrop"></div>
     <div id="whatsNewModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                Что нового
-                <button id="whatsNewClose" class="close-modal">✕</button>
-            </div>
-            <div class="modal-body">
-                <div id="whatsNewList">
-                    <ul>
-                        <li>
-                            <h3>Новое окно</h3>
-                            <p>Двойное нажатие по "Генератор KML" открывает окно с дополнительными настройками(в
-                                дальнейшем будет пополнятся)</p>
-                        </li>
-
-                        <li>
-                            <h3>Добавлена возможность полной отчистки данных</h3>
-                        </li>
-                        <li>
-                            <h3>Добавление точек из Аргуса</h3>
-
-                            <p>Для добавления точек (колодцев, шкафов, опор и других объектов с координатами) из Аргуса выполните следующие шаги:</p>
-                            
-                            <ol>
-                            <li>Откройте новое окно браузера и перейдите на страницу управления расширениями (в Chrome — введите <code>chrome://extensions</code> в адресную строку).</li>
-                            <li>Включите <strong>режим разработчика</strong>, переместив переключатель в правом верхнем углу в положение <em>ВКЛ</em>.</li>
-                            <li>Нажмите кнопку <strong>«Загрузить расширение»</strong> и выберите скачанный ZIP-архив расширения.
-                            <em>Не извлекайте архив — выбирайте сам файл .zip.</em></li>
-                            <li>После успешной установки расширения, перейдите на карту магистрали в Аргусе.</li>
-                            <li><strong>Выбирите и дважды кликните</strong> по названию или карточке объекта (колодец, шкаф, опора и т.п.), у которого есть указанные координаты.</li>
-                            
-                            <li>После двойного клика данные объекта автоматически добавятся в список.</li>
-                            </ol>
-                            </p>
-                        </li>
-                    </ul>
-                </div>
-            </div>
         </div>
     </div>
     <div id="whatsNewModalBackdrop" class="modal-backdrop"></div>
@@ -197,17 +136,25 @@
             </div>
             <div class="modal-body">
                 <div id="advancedOptionsList" class="well-list">
-                    
+                    <!-- Пункты будут добавлены через JavaScript -->
                 </div>
             </div>
         </div>
     </div>
     <div id="advancedModalBackdrop" class="modal-backdrop"></div>
-    
-    <script src="script/theme.js"></script>
-    <script src="script/opener-kml.js"></script>
-    <script src="script/main.js"></script>
-    <script src="script/whatsnew.js"></script>
+    <input type="file" id="universalFileInput" accept=".kml,.xlsx" style="display:none">
+    <div id="globalDropOverlay">
+        <div class="textDropOverlay">
+            <H2>Отпустите для загрузки</H2>
+            <h3>Поддерживаемые файлы: KML, xlsx, xls.</h3>
+        </div>
+    </div>
+    <div id="loadSpinner" class="spinner-overlay">
+        <div class="spinner"></div>
+        <div class="spinner-text">Обработка файла…</div>
+      </div>
+
+
 </body>
 
 </html>
